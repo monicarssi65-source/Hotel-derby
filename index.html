@@ -582,8 +582,8 @@ let _cacheLoaded = false;
 
 // Ascolta in tempo reale tutti i cambiamenti nel DB
 function startRealtimeSync(){
-  schedeCol.orderBy('created_at_ms','desc').onSnapshot(snapshot => {
-    _cache = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+  schedeCol.onSnapshot(snapshot => {
+    _cache = snapshot.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b)=>(b.created_at_ms||0)-(a.created_at_ms||0));
     _cacheLoaded = true;
     setConnStatus(true);
     // Aggiorna viste attive
@@ -604,7 +604,7 @@ function dbLoad(){ return _cache; }
 async function dbAdd(rec){
   rec.created_at = new Date().toISOString();
   rec.created_at_ms = Date.now();
-  const docRef = const docRef = await schedeCol.add(rec); return {...rec, id: docRef.id};
+  const docRef = await schedeCol.add(rec);
   rec.id = docRef.id;
   return rec;
 }
