@@ -295,6 +295,7 @@ textarea{resize:vertical;min-height:70px;}
     <button class="nav-btn" id="nav-archivio" onclick="showView('archivio')">📂 Archivio</button>
     <button class="nav-btn" id="nav-clienti" onclick="showView('clienti')">👥 Clienti</button>
     <button class="nav-btn" id="nav-impostazioni" onclick="showView('impostazioni')">⚙️ Hotel</button>
+    <button class="nav-btn" onclick="syncExport()" title="Esporta dati per sincronizzare">📤 Sync</button>
   </div>
 </header>
 
@@ -546,78 +547,16 @@ textarea{resize:vertical;min-height:70px;}
 
 <script>
 // ═══════════════════════════════════════════════════════════
-// DATABASE — JSONBin.io (condiviso tra tutti i dispositivi)
+// DATABASE — Firebase Firestore
 // ═══════════════════════════════════════════════════════════
-const JSONBIN_ID = '69eb679c856a6821896a5f13';
-const JSONBIN_KEY = '$2a$10$P3BGYDrkDIDtZwW3uE1hKOjGLmX/5jCEWJNYo7YSPf3fWxjgoCGo2';
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
 const SET_KEY = 'hotel_settings';
-
 let _cache = [];
-let _syncInterval = null;
 
 function setConnStatus(online){
   const el=document.getElementById('conn-status');
   if(!el)return;
   el.textContent = online ? '🟢 Online' : '🔴 Offline';
   el.style.color = online ? '#81c784' : '#e74c3c';
-}
-
-async function jsonbinRead(){
-  const res = await fetch(JSONBIN_URL+'/latest', {
-    headers: { 'X-Master-Key': JSONBIN_KEY, 'X-Bin-Meta': 'false' }
-  });
-  if(!res.ok) throw new Error('Read failed: '+res.status);
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
-}
-
-async function jsonbinWrite(records){
-  const res = await fetch(JSONBIN_URL, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
-    body: JSON.stringify(records)
-  });
-  if(!res.ok) throw new Error('Write failed: '+res.status);
-  return res.json();
-}
-
-function dbLoad(){ return _cache; }
-
-async function dbAdd(rec){
-  rec.id = Date.now().toString();
-  rec.created_at = new Date().toISOString();
-  rec.created_at_ms = Date.now();
-  const records = await jsonbinRead();
-  records.unshift(rec);
-  await jsonbinWrite(records);
-  _cache = records;
-  setConnStatus(true);
-  refreshViews();
-  return rec;
-}
-
-async function dbUpdate(id, rec){
-  const records = await jsonbinRead();
-  const i = records.findIndex(x=>x.id===id);
-  if(i>=0){
-    rec.id = id;
-    rec.created_at = records[i].created_at;
-    rec.created_at_ms = records[i].created_at_ms;
-    rec.updated_at = new Date().toISOString();
-    records[i] = rec;
-  }
-  await jsonbinWrite(records);
-  _cache = records;
-  refreshViews();
-}
-
-async function dbDelete(id){
-  const records = await jsonbinRead();
-  const filtered = records.filter(r=>r.id!==id);
-  await jsonbinWrite(filtered);
-  _cache = filtered;
-  refreshViews();
 }
 
 function refreshViews(){
@@ -629,23 +568,49 @@ function refreshViews(){
   if(clEl&&clEl.style.display!=='none')renderClienti();
 }
 
-async function startRealtimeSync(){
-  try{
-    _cache = await jsonbinRead();
-    setConnStatus(true);
-    refreshViews();
-  }catch(e){
-    console.error('JSONBin sync error:',e);
-    setConnStatus(false);
-  }
-  // Aggiorna ogni 30 secondi
-  _syncInterval = setInterval(async()=>{
-    try{
-      _cache = await jsonbinRead();
+function dbLoad(){ return _cache; }
+
+function dbAdd(rec){
+  rec.id=Date.now().toString();
+  rec.created_at=new Date().toISOString();
+  rec.created_at_ms=Date.now();
+  firebase.firestore().collection('schede').doc(rec.id).set(rec)
+    .catch(e=>console.error('dbAdd error:',e));
+  return rec;
+}
+
+function dbUpdate(id,rec){
+  const existing=_cache.find(x=>x.id===id)||{};
+  rec.id=id;
+  rec.created_at=existing.created_at||new Date().toISOString();
+  rec.created_at_ms=existing.created_at_ms||Date.now();
+  rec.updated_at=new Date().toISOString();
+  firebase.firestore().collection('schede').doc(id).set(rec)
+    .catch(e=>console.error('dbUpdate error:',e));
+}
+
+function dbDelete(id){
+  firebase.firestore().collection('schede').doc(id).delete()
+    .catch(e=>console.error('dbDelete error:',e));
+}
+
+function startRealtimeSync(){
+  const db=firebase.firestore();
+  db.collection('schede').onSnapshot(
+    snapshot=>{
+      _cache=snapshot.docs
+        .map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>(b.created_at_ms||0)-(a.created_at_ms||0));
       setConnStatus(true);
       refreshViews();
-    }catch(e){ setConnStatus(false); }
-  }, 30000);
+    },
+    err=>{
+      console.error('Firestore error:',err.code, err.message);
+      setConnStatus(false);
+      // Riprova dopo 5 secondi
+      setTimeout(startRealtimeSync, 5000);
+    }
+  );
 }
 
 // Impostazioni restano in localStorage (sono locali al dispositivo)
@@ -922,7 +887,7 @@ function buildSchedaHTML(room,ci,co,oggi,cap,altri,ng,tassaTot,tassaDet,note,hot
   </div>`;
 }
 
-async function generaScheda(){
+function generaScheda(){
   const room=document.getElementById('room-num').value||'—';
   const ci=fmtDate(document.getElementById('checkin-date').value);
   const co=fmtDate(document.getElementById('checkout-date').value);
@@ -943,8 +908,8 @@ async function generaScheda(){
     capogruppo:{nome:cap.nome,cognome:cap.cognome,data_nascita:cap.ddn_raw,luogo_nascita:cap.ldn,tipo_documento:cap.tipoDoc,numero_documento:cap.nDoc,luogo_rilascio:cap.rilascio,nazionalita:cap.nazionalita},
     altri_ospiti:altri.map(o=>({nome:o.nome,cognome:o.cognome,data_nascita:o.ddn_raw,luogo_nascita:o.ldn,nazionalita:o.naz}))
   };
-  if(editingId){await dbUpdate(editingId,rec);editingId=null;document.getElementById('edit-banner').classList.remove('visible');}
-  else{await dbAdd(rec);}
+  if(editingId){dbUpdate(editingId,rec);editingId=null;document.getElementById('edit-banner').classList.remove('visible');}
+  else{dbAdd(rec);}
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1254,7 +1219,7 @@ function openDetail(id){
 function showCDel(id){const el=document.getElementById('cd-'+id);if(el)el.classList.add('show');}
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
 function confirmDelete(id){openDetail(id);setTimeout(()=>showCDel(id),60);}
-async function deleteRecord(id){await dbDelete(id);closeModal();}
+async function deleteRecord(id){dbDelete(id);closeModal();}
 
 // ═══════════════════════════════════════════════════════════
 // RISTAMPA
@@ -1520,6 +1485,42 @@ function renderAltriOspitiForm(count,data){
 }
 
 // ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// SINCRONIZZAZIONE MANUALE TRA DISPOSITIVI
+// ═══════════════════════════════════════════════════════════
+function syncExport(){
+  const data=dbLoad();
+  if(!data.length){alert('Nessuna scheda da esportare.');return;}
+  const json=JSON.stringify(data);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='hotelderby-sync-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+}
+function syncImport(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json';
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!Array.isArray(data)){alert('File non valido.');return;}
+        const existing=dbLoad();
+        const existingIds=new Set(existing.map(r=>r.id));
+        const nuovi=data.filter(r=>!existingIds.has(r.id));
+        const merged=[...existing,...nuovi].sort((a,b)=>(b.created_at_ms||0)-(a.created_at_ms||0));
+        dbSave(merged);refreshViews();
+        alert('Importate '+nuovi.length+' nuove schede. Totale: '+merged.length);
+      }catch(e){alert('Errore: '+e.message);}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 // INIT
 // ═══════════════════════════════════════════════════════════
 document.getElementById('checkin-date').value=new Date().toISOString().split('T')[0];
