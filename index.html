@@ -1265,6 +1265,38 @@ function fmtDate(str){if(!str)return'—';const p=str.split('-');if(p.length!==3
 // Funzioni globali - disponibili senza moduli
 
 // ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// ESPORTA FUNZIONI GLOBALI (necessario per onclick HTML)
+// ═══════════════════════════════════════════════════════════
+window.setMode=setMode;
+window.onNumGuestsChange=onNumGuestsChange;
+window.analyzeDocuments=analyzeDocuments;
+window.compilaManuale=compilaManuale;
+window.generaScheda=generaScheda;
+window.resetAll=resetAll;
+window.backToForm=backToForm;
+window.showView=showView;
+window.esportaJPEG=esportaJPEG;
+window.saveScheda=saveScheda;
+window.stampaCheckout=stampaCheckout;
+window.sortBy=sortBy;
+window.renderArchivio=renderArchivio;
+window.renderClienti=renderClienti;
+window.openDetail=openDetail;
+window.closeModal=closeModal;
+window.showCDel=showCDel;
+window.confirmDelete=confirmDelete;
+window.deleteRecord=deleteRecord;
+window.editRecord=editRecord;
+window.ristampaScheda=ristampaScheda;
+window.exportCSV=exportCSV;
+window.exportJSON=exportJSON;
+window.salvaImpostazioni=salvaImpostazioni;
+window.removeImg=removeImg;
+window.syncExport=syncExport;
+window.syncImport=syncImport;
+
 // INIT
 // ═══════════════════════════════════════════════════════════
 document.getElementById('checkin-date').value=new Date().toISOString().split('T')[0];
@@ -1521,6 +1553,38 @@ function syncImport(){
   };
   input.click();
 }
+
+// ═══════════════════════════════════════════════════════════
+// ESPORTA FUNZIONI GLOBALI (necessario per onclick HTML)
+// ═══════════════════════════════════════════════════════════
+window.setMode=setMode;
+window.onNumGuestsChange=onNumGuestsChange;
+window.analyzeDocuments=analyzeDocuments;
+window.compilaManuale=compilaManuale;
+window.generaScheda=generaScheda;
+window.resetAll=resetAll;
+window.backToForm=backToForm;
+window.showView=showView;
+window.esportaJPEG=esportaJPEG;
+window.saveScheda=saveScheda;
+window.stampaCheckout=stampaCheckout;
+window.sortBy=sortBy;
+window.renderArchivio=renderArchivio;
+window.renderClienti=renderClienti;
+window.openDetail=openDetail;
+window.closeModal=closeModal;
+window.showCDel=showCDel;
+window.confirmDelete=confirmDelete;
+window.deleteRecord=deleteRecord;
+window.editRecord=editRecord;
+window.ristampaScheda=ristampaScheda;
+window.exportCSV=exportCSV;
+window.exportJSON=exportJSON;
+window.salvaImpostazioni=salvaImpostazioni;
+window.removeImg=removeImg;
+window.syncExport=syncExport;
+window.syncImport=syncImport;
+
 // INIT
 // ═══════════════════════════════════════════════════════════
 document.getElementById('checkin-date').value=new Date().toISOString().split('T')[0];
