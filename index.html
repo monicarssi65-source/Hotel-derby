@@ -1520,6 +1520,17 @@ function renderAltriOspitiForm(count,data){
 }
 
 // ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+document.getElementById('checkin-date').value=new Date().toISOString().split('T')[0];
+document.getElementById('checkout-date').value=new Date(Date.now()+86400000).toISOString().split('T')[0];
+document.getElementById('checkin-date').addEventListener('change',calcolaTassa);
+document.getElementById('checkout-date').addEventListener('change',calcolaTassa);
+document.getElementById('tassa-tariffa').addEventListener('change',calcolaTassa);
+applicaImpostazioni(Object.keys(setLoad()).length?setLoad():{nomeHotel:'Hotel Derby'});
+calcolaTassa();
+setConnStatus(false);
+startRealtimeSync();
 </script>
 </body>
 </html>
