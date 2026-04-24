@@ -543,27 +543,19 @@ textarea{resize:vertical;min-height:70px;}
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <script>
 // ═══════════════════════════════════════════════════════════
-// FIREBASE CONFIG
+// DATABASE — JSONBin.io (condiviso tra tutti i dispositivi)
 // ═══════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyAhtBZ-UIokFLr905fgwcRGmNJlKMUdew8",
-  authDomain: "hotel-derby-reception.firebaseapp.com",
-  projectId: "hotel-derby-reception",
-  storageBucket: "hotel-derby-reception.firebasestorage.app",
-  messagingSenderId: "10481064334",
-  appId: "1:10481064334:web:31cc441430aa68e4086cdf",
-  measurementId: "G-38NSSHVQTJ"
-};
+const JSONBIN_ID = '69eb679c856a6821896a5f13';
+const JSONBIN_KEY = '$2a$10$P3BGYDrkDIDtZwW3uE1hKOjGLmX/5jCEWJNYo7YSPf3fWxjgoCGo2';
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
+const SET_KEY = 'hotel_settings';
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const schedeCol = db.collection('schede');
+let _cache = [];
+let _syncInterval = null;
 
-// ── INDICATORE CONNESSIONE ────────────────────────────────
 function setConnStatus(online){
   const el=document.getElementById('conn-status');
   if(!el)return;
@@ -571,55 +563,89 @@ function setConnStatus(online){
   el.style.color = online ? '#81c784' : '#e74c3c';
 }
 
-// ═══════════════════════════════════════════════════════════
-// DATABASE (Firebase Firestore — sostituisce localStorage)
-// ═══════════════════════════════════════════════════════════
-const SET_KEY='hotel_settings';
-
-// Cache locale per velocità UI
-let _cache = [];
-let _cacheLoaded = false;
-
-// Ascolta in tempo reale tutti i cambiamenti nel DB
-function startRealtimeSync(){
-  schedeCol.onSnapshot(snapshot => {
-    _cache = snapshot.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b)=>(b.created_at_ms||0)-(a.created_at_ms||0));
-    _cacheLoaded = true;
-    setConnStatus(true);
-    // Aggiorna viste attive
-    const archEl = document.getElementById('archivio-section');
-    const coEl = document.getElementById('checkout-section');
-    const clEl = document.getElementById('clienti-section');
-    if(archEl && archEl.style.display !== 'none') renderArchivio();
-    if(coEl && coEl.style.display !== 'none') renderCheckoutOggi();
-    if(clEl && clEl.style.display !== 'none') renderClienti();
-  }, err => {
-    console.error('Firestore sync error:', err);
-    setConnStatus(false);
+async function jsonbinRead(){
+  const res = await fetch(JSONBIN_URL+'/latest', {
+    headers: { 'X-Master-Key': JSONBIN_KEY, 'X-Bin-Meta': 'false' }
   });
+  if(!res.ok) throw new Error('Read failed: '+res.status);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function jsonbinWrite(records){
+  const res = await fetch(JSONBIN_URL, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+    body: JSON.stringify(records)
+  });
+  if(!res.ok) throw new Error('Write failed: '+res.status);
+  return res.json();
 }
 
 function dbLoad(){ return _cache; }
 
 async function dbAdd(rec){
+  rec.id = Date.now().toString();
   rec.created_at = new Date().toISOString();
   rec.created_at_ms = Date.now();
-  const docRef = await schedeCol.add(rec);
-  rec.id = docRef.id;
+  const records = await jsonbinRead();
+  records.unshift(rec);
+  await jsonbinWrite(records);
+  _cache = records;
+  setConnStatus(true);
+  refreshViews();
   return rec;
 }
 
 async function dbUpdate(id, rec){
-  const existing = _cache.find(x=>x.id===id);
-  rec.id = id;
-  rec.created_at = existing ? existing.created_at : new Date().toISOString();
-  rec.created_at_ms = existing ? existing.created_at_ms : Date.now();
-  rec.updated_at = new Date().toISOString();
-  await db.collection('schede').doc(id).set(rec);
+  const records = await jsonbinRead();
+  const i = records.findIndex(x=>x.id===id);
+  if(i>=0){
+    rec.id = id;
+    rec.created_at = records[i].created_at;
+    rec.created_at_ms = records[i].created_at_ms;
+    rec.updated_at = new Date().toISOString();
+    records[i] = rec;
+  }
+  await jsonbinWrite(records);
+  _cache = records;
+  refreshViews();
 }
 
 async function dbDelete(id){
-  await db.collection('schede').doc(id).delete();
+  const records = await jsonbinRead();
+  const filtered = records.filter(r=>r.id!==id);
+  await jsonbinWrite(filtered);
+  _cache = filtered;
+  refreshViews();
+}
+
+function refreshViews(){
+  const archEl=document.getElementById('archivio-section');
+  const coEl=document.getElementById('checkout-section');
+  const clEl=document.getElementById('clienti-section');
+  if(archEl&&archEl.style.display!=='none')renderArchivio();
+  if(coEl&&coEl.style.display!=='none')renderCheckoutOggi();
+  if(clEl&&clEl.style.display!=='none')renderClienti();
+}
+
+async function startRealtimeSync(){
+  try{
+    _cache = await jsonbinRead();
+    setConnStatus(true);
+    refreshViews();
+  }catch(e){
+    console.error('JSONBin sync error:',e);
+    setConnStatus(false);
+  }
+  // Aggiorna ogni 30 secondi
+  _syncInterval = setInterval(async()=>{
+    try{
+      _cache = await jsonbinRead();
+      setConnStatus(true);
+      refreshViews();
+    }catch(e){ setConnStatus(false); }
+  }, 30000);
 }
 
 // Impostazioni restano in localStorage (sono locali al dispositivo)
