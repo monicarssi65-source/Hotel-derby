@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hotel Derby — Reception</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E8D5A3;--dark:#1A1410;--dark2:#2A2018;--dark3:#3A3028;
+  --cream:#F5EDD8;--cream2:#EDE0C4;--text:#2A1F0E;--muted:#7A6A55;
+  --brd:rgba(201,168,76,.3);--brd2:rgba(201,168,76,.6);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Mono',monospace;background:var(--dark);color:var(--cream);min-height:100vh;}
+/* HEADER */
+header{border-bottom:1px solid var(--brd);padding:1rem 1.5rem;display:flex;align-items:center;
+  justify-content:space-between;background:rgba(26,20,16,.97);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:.5rem;}
+.hname{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:300;letter-spacing:.1em;color:var(--gold);}
+.hname em{font-style:italic;font-weight:600;}
+.hsub{font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);}
+.hnav{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;}
+.nb{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.45rem .8rem;border-radius:3px;border:1px solid var(--brd);background:transparent;
+  color:var(--muted);cursor:pointer;transition:all .2s;}
+.nb:hover{color:var(--gold);border-color:var(--brd2);}
+.nb.on{color:var(--gold);border-color:var(--gold);background:rgba(201,168,76,.1);}
+#conn{font-size:.58rem;color:var(--muted);letter-spacing:.08em;}
+/* LAYOUT */
+.wrap{max-width:1100px;margin:0 auto;padding:1.5rem 1.25rem 4rem;}
+/* STEPS */
+.steps{display:flex;border:1px solid var(--brd);border-radius:4px;overflow:hidden;margin-bottom:1.5rem;}
+.step{flex:1;padding:.65rem .5rem;text-align:center;font-size:.58rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);border-right:1px solid var(--brd);transition:all .3s;}
+.step:last-child{border-right:none;}
+.step.on{background:rgba(201,168,76,.12);color:var(--gold);}
+.step.done{color:var(--gold-l);background:rgba(201,168,76,.06);}
+/* PANEL */
+.panel{background:var(--dark2);border:1px solid var(--brd);border-radius:6px;padding:1.5rem;margin-bottom:1.25rem;}
+.ptitle{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:var(--gold);
+  margin-bottom:1rem;padding-bottom:.65rem;border-bottom:1px solid var(--brd);
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+/* FORM */
+.frow{display:flex;gap:.85rem;flex-wrap:wrap;margin-bottom:1rem;}
+.fg{display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:120px;}
+label{font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+input,select,textarea{background:var(--dark3);border:1px solid var(--brd);border-radius:3px;
+  color:var(--cream);font-family:'DM Mono',monospace;font-size:.8rem;padding:.5rem .7rem;
+  outline:none;transition:border-color .2s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);}
+select option{background:var(--dark2);}
+textarea{resize:vertical;min-height:65px;}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.65rem;}
+/* MODE */
+.mode{display:flex;border:1px solid var(--brd);border-radius:4px;overflow:hidden;margin-bottom:1rem;}
+.mbtn{flex:1;padding:.6rem 1rem;text-align:center;font-family:'DM Mono',monospace;
+  font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;background:transparent;
+  color:var(--muted);border:none;cursor:pointer;transition:all .2s;border-right:1px solid var(--brd);}
+.mbtn:last-child{border-right:none;}
+.mbtn.on{background:rgba(201,168,76,.12);color:var(--gold);}
+/* UPLOAD */
+.uzone{border:2px dashed var(--brd2);border-radius:6px;padding:1.75rem;text-align:center;
+  transition:all .3s;background:rgba(201,168,76,.02);margin-bottom:.9rem;}
+.uzone.drag{border-color:var(--gold);background:rgba(201,168,76,.06);}
+.uico{font-size:2rem;margin-bottom:.5rem;opacity:.6;}
+.utxt{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:300;color:var(--cream2);margin-bottom:.2rem;}
+.usub{font-size:.58rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;}
+.ubtns{display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap;margin-top:.9rem;}
+.ubtn{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;
+  padding:.55rem 1.2rem;border-radius:3px;cursor:pointer;transition:all .25s;
+  display:inline-flex;align-items:center;gap:.4rem;
+  background:transparent;color:var(--gold);border:1px solid var(--brd2);}
+.ubtn:hover{background:rgba(201,168,76,.1);}
+.ubtn.pri{background:rgba(201,168,76,.15);color:var(--gold-l);border:1px solid var(--gold);}
+.ubtn.pri:hover{background:rgba(201,168,76,.25);}
+/* PREVIEWS */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.55rem;margin-bottom:1rem;}
+.pitem{border:1px solid var(--brd);border-radius:4px;overflow:hidden;position:relative;aspect-ratio:3/2;}
+.pitem img{width:100%;height:100%;object-fit:cover;}
+.prmbtn{position:absolute;top:3px;right:3px;background:rgba(192,57,43,.9);border:none;
+  border-radius:50%;color:#fff;font-size:.65rem;width:18px;height:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;}
+.pbadge{position:absolute;bottom:3px;left:3px;background:rgba(26,20,16,.85);
+  border-radius:3px;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-l);padding:2px 4px;}
+/* BUTTONS */
+.btn{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;
+  padding:.65rem 1.4rem;border-radius:3px;border:none;cursor:pointer;
+  transition:all .25s;display:inline-flex;align-items:center;gap:.4rem;}
+.btn-p{background:var(--gold);color:var(--dark);font-weight:500;}
+.btn-p:hover{background:var(--gold-l);}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;}
+.btn-o{background:transparent;color:var(--gold);border:1px solid var(--brd2);}
+.btn-o:hover{background:rgba(201,168,76,.1);}
+.btn-d{background:transparent;color:#e74c3c;border:1px solid rgba(231,76,60,.4);}
+.btn-d:hover{background:rgba(231,76,60,.1);}
+.brow{display:flex;gap:.65rem;flex-wrap:wrap;}
+/* BANNERS */
+.aibox{display:none;align-items:center;gap:.9rem;background:rgba(201,168,76,.06);
+  border:1px solid var(--brd);border-radius:4px;padding:.8rem 1.2rem;margin-bottom:1rem;}
+.aibox.on{display:flex;}
+.spin{width:16px;height:16px;border:2px solid var(--brd);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.bnr{display:none;border-radius:4px;padding:.8rem 1.2rem;margin-bottom:1rem;
+  font-size:.7rem;align-items:center;gap:.65rem;}
+.bnr.on{display:flex;}
+.bnr-ok{background:rgba(46,125,50,.15);border:1px solid rgba(46,125,50,.4);color:#81c784;}
+.bnr-ed{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.4);color:var(--gold-l);}
+/* GUEST CARDS */
+.gcard{background:var(--dark3);border:1px solid var(--brd);border-radius:5px;
+  padding:1rem;margin-bottom:.65rem;animation:fi .3s ease;}
+.gcap{border-color:rgba(201,168,76,.5);}
+@keyframes fi{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
+.gcttl{font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.8rem;}
+.gcap .gcttl{color:var(--gold);}
+/* TASSA */
+.tbox{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);border-radius:5px;padding:1rem;}
+.ttitle{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;}
+.tgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.65rem;margin-bottom:.75rem;}
+.tres{background:rgba(201,168,76,.15);border-radius:4px;padding:.65rem 1rem;
+  display:flex;justify-content:space-between;align-items:center;}
+.tval{font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--gold);font-weight:600;}
+/* SCHEDA */
+#s-scheda{display:none;}
+.sw{background:var(--cream);color:var(--text);border-radius:6px;padding:2rem;
+  margin-bottom:1rem;font-family:'Cormorant Garamond',serif;position:relative;overflow:hidden;}
+.sw::before{content:'';position:absolute;top:0;left:0;right:0;height:5px;
+  background:linear-gradient(90deg,var(--gold),#1A1410,var(--gold));}
+.shead{display:flex;justify-content:space-between;align-items:flex-start;
+  margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--cream2);}
+.shotel{font-size:1.3rem;font-weight:300;letter-spacing:.1em;color:#8B6914;}
+.shotel em{font-weight:600;}
+.smeta{text-align:right;font-size:.75rem;color:var(--muted);font-family:'DM Mono',monospace;}
+.smeta .srn{font-size:1.3rem;font-weight:600;color:var(--text);font-family:'Cormorant Garamond',serif;}
+.ssttl{font-size:.55rem;font-family:'DM Mono',monospace;letter-spacing:.2em;text-transform:uppercase;
+  color:#8B6914;margin-bottom:.6rem;display:flex;align-items:center;gap:.6rem;}
+.ssttl::after{content:'';flex:1;height:1px;background:rgba(139,105,20,.3);}
+.sblk{background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);border-radius:4px;padding:1rem;margin-bottom:1rem;}
+.sr2{display:grid;grid-template-columns:1fr 1fr;gap:.4rem 1rem;margin-bottom:.4rem;}
+.sr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem 1rem;margin-bottom:.4rem;}
+.sf label{font-size:.5rem;font-family:'DM Mono',monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:1px;}
+.sf .v{font-size:.9rem;color:var(--text);border-bottom:1px solid rgba(139,105,20,.25);padding-bottom:2px;min-height:1.2rem;}
+.ogrid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.ocard{background:rgba(245,237,216,.7);border:1px solid rgba(201,168,76,.15);border-radius:4px;padding:.8rem;}
+.onum{font-family:'DM Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;}
+.sfoot{margin-top:1.5rem;padding-top:.8rem;border-top:1px solid rgba(139,105,20,.2);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;}
+.sfootxt{font-size:.65rem;font-family:'DM Mono',monospace;color:var(--muted);}
+.firma-line{width:150px;height:1px;background:rgba(139,105,20,.4);margin:0 auto 3px;}
+.firma-lbl{font-size:.55rem;font-family:'DM Mono',monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);text-align:center;}
+.stassa{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:4px;
+  padding:.75rem 1rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;}
+.snote{background:rgba(245,237,216,.5);border:1px solid rgba(201,168,76,.15);border-radius:4px;padding:.75rem 1rem;margin-bottom:1rem;}
+/* CHECKOUT */
+.cobadge{display:inline-flex;align-items:center;gap:.35rem;background:rgba(201,168,76,.1);
+  border:1px solid rgba(201,168,76,.3);border-radius:3px;padding:2px 7px;
+  font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.8rem;}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--gold);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.cogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.65rem;}
+.cocard{background:var(--dark3);border:1px solid var(--brd);border-radius:5px;
+  padding:.85rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:.8rem;}
+.cocard:hover{border-color:var(--brd2);}
+.con{font-size:.88rem;color:var(--cream);margin-bottom:.12rem;}
+.com{font-size:.6rem;color:var(--muted);}
+.coroom{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:600;color:var(--gold);}
+.coempty{font-size:.75rem;color:var(--muted);padding:.35rem 0;}
+/* ARCHIVIO */
+.atbar{display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+.sw2{position:relative;flex:1;min-width:180px;}
+.sw2 input{padding-left:1.9rem;}
+.sico{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);font-size:.75rem;opacity:.4;pointer-events:none;}
+.astats{font-size:.6rem;letter-spacing:.12em;color:var(--muted);white-space:nowrap;}
+.atable{width:100%;border-collapse:collapse;font-size:.74rem;}
+.atable th{font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);
+  padding:.5rem .7rem;text-align:left;border-bottom:1px solid var(--brd);cursor:pointer;white-space:nowrap;user-select:none;}
+.atable th:hover{color:var(--gold-l);}
+.atable th.sorted .sa{opacity:1;}
+.atable th .sa{margin-left:3px;opacity:.35;}
+.atable td{padding:.65rem .7rem;border-bottom:1px solid rgba(201,168,76,.1);color:var(--cream2);vertical-align:middle;}
+.atable tr:hover td{background:rgba(201,168,76,.04);}
+.tdc{font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--gold);font-weight:600;}
+.tdn{color:var(--cream);}
+.tdd{font-size:.68rem;color:var(--muted);}
+.tdg{background:rgba(201,168,76,.1);border-radius:3px;padding:2px 6px;font-size:.65rem;color:var(--gold-l);display:inline-block;}
+.tdact{display:flex;gap:.3rem;flex-wrap:wrap;}
+.tbtn{font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.08em;padding:.25rem .5rem;
+  border-radius:3px;border:1px solid var(--brd);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap;}
+.tbtn:hover{color:var(--gold);border-color:var(--brd2);}
+.tbtn.d{color:rgba(231,76,60,.7);}
+.tbtn.d:hover{color:#e74c3c;border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.08);}
+.aempty{text-align:center;padding:2.25rem 1rem;font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:300;color:var(--muted);}
+/* CLIENTI */
+.clcard{background:var(--dark3);border:1px solid var(--brd);border-radius:5px;
+  padding:.9rem 1.1rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;}
+.clcard:hover{border-color:var(--brd2);}
+.cln{font-size:.92rem;color:var(--cream);margin-bottom:.18rem;}
+.clm{font-size:.6rem;color:var(--muted);}
+.cls{font-size:.6rem;color:var(--gold-l);text-align:right;}
+/* SETTINGS */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:600px){.sgrid{grid-template-columns:1fr;} .tgrid{grid-template-columns:1fr 1fr;}}
+/* MODAL */
+.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;
+  align-items:center;justify-content:center;padding:1.1rem;}
+.moverlay.on{display:flex;}
+.mbox{background:var(--dark2);border:1px solid var(--brd);border-radius:8px;
+  max-width:700px;width:100%;max-height:88vh;overflow-y:auto;padding:1.5rem;position:relative;}
+.mclose{position:absolute;top:.8rem;right:.8rem;background:transparent;
+  border:1px solid var(--brd);color:var(--muted);border-radius:50%;width:25px;height:25px;
+  font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mclose:hover{color:var(--cream);}
+.mtitle{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--gold);margin-bottom:1.1rem;}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem 1.25rem;margin-bottom:.8rem;}
+.df label{font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:2px;}
+.df .dv{font-size:.83rem;color:var(--cream);border-bottom:1px solid var(--brd);padding-bottom:2px;}
+.dsec{font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1rem 0 .5rem;}
+.odc{background:var(--dark3);border:1px solid var(--brd);border-radius:4px;padding:.65rem;margin-bottom:.4rem;}
+.cdel{background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);border-radius:4px;
+  padding:.65rem .85rem;margin-top:.85rem;font-size:.7rem;color:#e74c3c;display:none;
+  align-items:center;gap:.8rem;flex-wrap:wrap;}
+.cdel.on{display:flex;}
+/* JPEG */
+#joverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:300;
+  align-items:center;justify-content:center;flex-direction:column;gap:1rem;padding:1.25rem;}
+#joverlay.on{display:flex;}
+#jprev{max-width:100%;max-height:70vh;border-radius:4px;}
+.note{font-size:.6rem;color:var(--muted);margin-top:.3rem;}
+@media print{
+  body{background:white!important;}
+  header,.steps,#s-checkin,#s-form,.brow,.aibox,#s-checkout,
+  #s-archivio,.mode,#s-clienti,#s-impost,.bnr{display:none!important;}
+  #s-scheda{display:block!important;}
+  .sw{box-shadow:none;}
+  .wrap{padding:0;max-width:100%;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="hname" id="hname">Hotel <em>Derby</em></div>
+    <div class="hsub">Reception Check-In System</div>
+  </div>
+  <div class="hnav">
+    <span id="conn">⏳ Connessione…</span>
+    <button class="nb on" id="nb-ci" onclick="showV('checkin')">✚ Check-In</button>
+    <button class="nb" id="nb-co" onclick="showV('checkout')">🔑 Checkout</button>
+    <button class="nb" id="nb-ar" onclick="showV('archivio')">📂 Archivio</button>
+    <button class="nb" id="nb-cl" onclick="showV('clienti')">👥 Clienti</button>
+    <button class="nb" id="nb-ts" onclick="showV('tassa')">💶 Tassa</button>
+    <button class="nb" id="nb-im" onclick="showV('impost')">⚙️ Hotel</button>
+    <button class="nb" onclick="syncExport()">📤 Sync</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- STEPS -->
+  <div class="steps" id="steps">
+    <div class="step on" id="st1">① Documenti</div>
+    <div class="step" id="st2">② Ospiti</div>
+    <div class="step" id="st3">③ Scheda</div>
+  </div>
+
+  <!-- CHECK-IN -->
+  <div id="s-checkin">
+    <div class="mode">
+      <button class="mbtn on" id="m-ai" onclick="setMode('ai')">🤖 Scansione AI</button>
+      <button class="mbtn" id="m-man" onclick="setMode('man')">✍️ Inserimento Manuale</button>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">🏨 Informazioni Prenotazione</div>
+      <div class="frow">
+        <div class="fg"><label>Numero Camera</label><input type="text" id="f-camera" placeholder="Es. 101"></div>
+        <div class="fg"><label>Check-In</label><input type="date" id="f-ci" onchange="calcTassa()"></div>
+        <div class="fg"><label>Check-Out</label><input type="date" id="f-co" onchange="calcTassa()"></div>
+        <div class="fg"><label>N° Ospiti</label>
+          <select id="f-ng" onchange="onNG()">
+            <option value="1">1 ospite</option>
+            <option value="2" selected>2 ospiti</option>
+            <option value="3">3 ospiti</option>
+            <option value="4">4 ospiti</option>
+            <option value="5">5 ospiti</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label>Note Aggiuntive</label>
+        <textarea id="f-note" placeholder="Es: Fattura richiesta, numero telefono, preferenze speciali…"></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">💰 Tassa di Soggiorno</div>
+      <div class="tbox">
+        <div class="ttitle">Calcolo Automatico</div>
+        <div class="tgrid">
+          <div class="fg"><label>€ / persona / notte</label>
+            <input type="number" id="t-tar" value="1.50" min="0" step="0.50" onchange="calcTassa()"></div>
+          <div class="fg"><label>Notti (max 5)</label>
+            <input type="number" id="t-notti" readonly style="opacity:.7;cursor:not-allowed;"></div>
+          <div class="fg"><label>Ospiti</label>
+            <input type="number" id="t-osp" readonly style="opacity:.7;cursor:not-allowed;"></div>
+        </div>
+        <div class="tres">
+          <div>
+            <div style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);">Totale Tassa di Soggiorno</div>
+            <div style="font-size:.62rem;color:var(--muted);margin-top:.15rem;" id="t-det">Inserisci date per il calcolo</div>
+          </div>
+          <div class="tval" id="t-tot">€ —</div>
+        </div>
+        <p class="note" style="margin-top:.5rem;">⚠️ La tassa si applica fino a un massimo di 5 notti continuative.</p>
+      </div>
+    </div>
+
+    <div class="panel" id="upanel">
+      <div class="ptitle">📄 Carica Documenti</div>
+      <div class="uzone" id="uzone">
+        <div class="uico">🪪</div>
+        <div class="utxt">Trascina qui le foto dei documenti</div>
+        <div class="usub">oppure usa i pulsanti · max 5</div>
+        <div class="ubtns">
+          <label class="ubtn pri" style="cursor:pointer;">
+            📁 Sfoglia File
+            <input type="file" id="finput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;">
+          </label>
+          <label class="ubtn" style="cursor:pointer;">
+            📷 Fotocamera
+            <input type="file" id="cinput" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;">
+          </label>
+        </div>
+      </div>
+      <div class="pgrid" id="pgrid"></div>
+      <p class="note">JPEG/PNG · Su smartphone usa Fotocamera per scattare direttamente</p>
+    </div>
+
+    <div class="aibox" id="aibox">
+      <div class="spin"></div>
+      <div style="font-size:.7rem;color:var(--cream2);"><strong style="color:var(--gold);">Analisi AI…</strong> Lettura documenti</div>
+    </div>
+    <div class="bnr bnr-ok" id="bnr-ok">✅ Dati estratti. Verifica e completa.</div>
+    <div class="bnr bnr-ed" id="bnr-ed">✏️ <span id="bnr-ed-txt">Modifica in corso.</span></div>
+
+    <div class="brow">
+      <button class="btn btn-p" id="ai-btn" disabled onclick="doAI()">🔍 Analizza con AI</button>
+      <button class="btn btn-o" id="man-btn" style="display:none" onclick="doManuale()">✍️ Compila Manualmente</button>
+    </div>
+  </div>
+
+  <!-- FORM OSPITI -->
+  <div id="s-form" style="display:none;margin-top:1.25rem;">
+    <div class="panel">
+      <div class="ptitle">👤 Capogruppo</div>
+      <div class="gcard gcap">
+        <div class="gcttl">★ Capogruppo — Titolare Prenotazione</div>
+        <div class="fgrid">
+          <div class="fg"><label>Nome</label><input type="text" id="c-nome" placeholder="Nome"></div>
+          <div class="fg"><label>Cognome</label><input type="text" id="c-cogn" placeholder="Cognome"></div>
+          <div class="fg"><label>Data di Nascita</label><input type="date" id="c-ddn"></div>
+          <div class="fg"><label>Luogo di Nascita</label><input type="text" id="c-ldn" placeholder="Città"></div>
+          <div class="fg"><label>Tipo Documento</label>
+            <select id="c-tdoc">
+              <option value="">— Seleziona —</option>
+              <option>Carta d'Identità</option>
+              <option>Passaporto</option>
+              <option>Patente di Guida</option>
+              <option>Permesso di Soggiorno</option>
+            </select>
+          </div>
+          <div class="fg"><label>N° Documento</label><input type="text" id="c-ndoc" placeholder="es. AB1234567"></div>
+          <div class="fg"><label>Luogo di Rilascio</label><input type="text" id="c-ril" placeholder="Città / Ente"></div>
+          <div class="fg"><label>Nazionalità</label><input type="text" id="c-naz" placeholder="es. Italiana"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="altri-panel" style="display:none;">
+      <div class="ptitle">👥 Altri Ospiti</div>
+      <div id="altri-cont"></div>
+    </div>
+    <div class="brow">
+      <button class="btn btn-p" onclick="generaScheda()">📋 Genera Scheda Camera</button>
+      <button class="btn btn-o" onclick="resetAll()">↺ Nuovo Check-In</button>
+    </div>
+  </div>
+
+  <!-- SCHEDA -->
+  <div id="s-scheda">
+    <div id="scheda-out"></div>
+    <div class="brow" style="margin-top:.5rem;">
+      <button class="btn btn-p" onclick="window.print()">🖨️ Stampa PDF</button>
+      <button class="btn btn-o" onclick="doJPEG()">🖼️ JPEG</button>
+      <button class="btn btn-o" onclick="saveHTML()">💾 Salva HTML</button>
+      <button class="btn btn-o" onclick="backToForm()">✏️ Modifica</button>
+      <button class="btn btn-d" onclick="resetAll()">↺ Nuovo</button>
+    </div>
+  </div>
+
+  <!-- CHECKOUT -->
+  <div id="s-checkout" style="display:none;">
+    <div class="panel">
+      <div class="ptitle">🔑 Checkout di Oggi
+        <button class="btn btn-o" style="margin-left:auto;font-size:.58rem;padding:.38rem .8rem;" onclick="printCheckout()">🖨️ Stampa</button>
+      </div>
+      <div class="cobadge"><span class="dot"></span><span id="co-lbl"></span></div>
+      <div class="cogrid" id="co-grid"></div>
+    </div>
+  </div>
+
+  <!-- ARCHIVIO -->
+  <div id="s-archivio" style="display:none;">
+    <div class="panel">
+      <div class="ptitle">📂 Archivio Check-In</div>
+      <div class="atbar">
+        <div class="sw2">
+          <span class="sico">🔍</span>
+          <input type="text" id="a-search" placeholder="Cerca nome, camera…" oninput="renderArchivio()">
+        </div>
+        <div class="astats" id="a-stats">0 schede</div>
+        <button class="btn btn-o" onclick="exportCSV()" style="font-size:.6rem;padding:.5rem .9rem;white-space:nowrap;">⬇ CSV</button>
+        <button class="btn btn-o" onclick="exportJSON()" style="font-size:.6rem;padding:.5rem .9rem;white-space:nowrap;">⬇ JSON</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="atable">
+          <thead><tr>
+            <th onclick="sortBy('ci_raw')" id="th-ci">Check-In <span class="sa">↕</span></th>
+            <th onclick="sortBy('co_raw')" id="th-co">Check-Out <span class="sa">↕</span></th>
+            <th onclick="sortBy('camera')" id="th-cam">Camera <span class="sa">↕</span></th>
+            <th onclick="sortBy('cap')" id="th-cap">Capogruppo <span class="sa">↕</span></th>
+            <th onclick="sortBy('naz')" id="th-naz">Naz. <span class="sa">↕</span></th>
+            <th>Ospiti</th><th>Azioni</th>
+          </tr></thead>
+          <tbody id="a-tbody"></tbody>
+        </table>
+      </div>
+      <div class="aempty" id="a-empty" style="display:none;">
+        <div style="font-size:2rem;opacity:.4;margin-bottom:.6rem;">🗂️</div>
+        <div>Nessuna scheda</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENTI -->
+  <div id="s-clienti" style="display:none;">
+    <div class="panel">
+      <div class="ptitle">👥 Elenco Clienti</div>
+      <div class="atbar">
+        <div class="sw2">
+          <span class="sico">🔍</span>
+          <input type="text" id="cl-search" placeholder="Cerca nome o cognome…" oninput="renderClienti()">
+        </div>
+        <div class="astats" id="cl-stats">0 clienti</div>
+      </div>
+      <div id="cl-lista"></div>
+      <div class="aempty" id="cl-empty" style="display:none;">
+        <div style="font-size:2rem;opacity:.4;margin-bottom:.6rem;">👤</div>
+        <div>Nessun cliente</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASSA MENSILE -->
+  <div id="s-tassa" style="display:none;">
+    <div class="panel">
+      <div class="ptitle">💶 Tassa di Soggiorno
+        <button class="btn btn-o" style="margin-left:auto;font-size:.58rem;padding:.38rem .8rem;" onclick="printTassa()">🖨️ Stampa</button>
+      </div>
+      <div class="atbar" style="flex-wrap:wrap;gap:.6rem;">
+        <div class="sw2" style="width:auto;">
+          <span class="sico">📅</span>
+          <select id="ts-month" onchange="renderTassa()" style="background:transparent;border:none;color:var(--gold);font-size:.85rem;outline:none;cursor:pointer;padding:.1rem .3rem;"></select>
+        </div>
+        <div class="astats" id="ts-stats"></div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="atable" id="ts-table">
+          <thead><tr>
+            <th>Check-In</th><th>Check-Out</th><th>Camera</th>
+            <th>Capogruppo</th><th>Ospiti</th><th>Notti tax.</th><th>Importo</th>
+          </tr></thead>
+          <tbody id="ts-tbody"></tbody>
+          <tfoot id="ts-tfoot"></tfoot>
+        </table>
+      </div>
+      <div class="aempty" id="ts-empty" style="display:none;">
+        <div style="font-size:2rem;opacity:.4;margin-bottom:.6rem;">💶</div>
+        <div>Nessuna scheda per questo mese</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPOSTAZIONI -->
+  <div id="s-impost" style="display:none;">
+    <div class="panel">
+      <div class="ptitle">⚙️ Impostazioni Hotel</div>
+      <div class="sgrid">
+        <div class="fg"><label>Nome Hotel</label><input type="text" id="s-nome" value="Hotel Derby" placeholder="Es. Hotel Derby"></div>
+        <div class="fg"><label>Categoria / Stelle</label><input type="text" id="s-cat" placeholder="Es. ★★★★"></div>
+        <div class="fg"><label>Indirizzo</label><input type="text" id="s-ind" placeholder="Via Roma 1, Milano"></div>
+        <div class="fg"><label>Telefono</label><input type="text" id="s-tel" placeholder="+39 02 000 0000"></div>
+        <div class="fg"><label>Tassa (€/pers/notte)</label><input type="number" id="s-tassa" value="1.50" min="0" step="0.50"></div>
+        <div class="fg"><label>Notti max tassa</label><input type="number" id="s-nmax" value="5" min="1" max="30"></div>
+      </div>
+      <div class="brow" style="margin-top:1rem;">
+        <button class="btn btn-p" onclick="saveSettings()">💾 Salva</button>
+        <div id="s-saved" style="display:none;font-size:.65rem;color:#81c784;padding:.5rem;">✅ Salvato!</div>
+      </div>
+      <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--brd);">
+        <div class="ptitle" style="font-size:1rem;margin-bottom:.75rem;">📤 Sincronizzazione Dati</div>
+        <p style="font-size:.7rem;color:var(--muted);margin-bottom:.75rem;">Esporta i dati da questo dispositivo e importali su un altro per sincronizzare l'archivio.</p>
+        <div class="brow">
+          <button class="btn btn-o" onclick="syncExport()">📤 Esporta Dati</button>
+          <button class="btn btn-o" onclick="syncImport()">📥 Importa Dati</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="moverlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="mbox">
+    <button class="mclose" onclick="closeModal()">×</button>
+    <div id="modal-cnt"></div>
+  </div>
+</div>
+
+<!-- JPEG -->
+<div id="joverlay">
+  <img id="jprev" src="" alt="Scheda">
+  <div class="brow" style="justify-content:center;">
+    <a id="jlink" class="btn btn-p" download="scheda.jpg">⬇ Scarica</a>
+    <button class="btn btn-o" onclick="document.getElementById('joverlay').classList.remove('on')">✕ Chiudi</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// FIREBASE
+// ══════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyAhtBZ-UIokFLr905fgwcRGmNJlKMUdew8",
+  authDomain:"hotel-derby-reception.firebaseapp.com",
+  projectId:"hotel-derby-reception",
+  storageBucket:"hotel-derby-reception.firebasestorage.app",
+  messagingSenderId:"10481064334",
+  appId:"1:10481064334:web:31cc441430aa68e4086cdf"
+});
+const FSdb = firebase.firestore();
+const FSCol = FSdb.collection('schede');
+let _cache=[];
+
+function setConn(ok){
+  const el=document.getElementById('conn');
+  el.textContent=ok?'🟢 Online':'🔴 Offline';
+  el.style.color=ok?'#81c784':'#e74c3c';
+}
+function startSync(){
+  FSCol.onSnapshot(
+    snap=>{
+      _cache=snap.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>(b.ts||0)-(a.ts||0));
+      setConn(true);
+      refreshViews();
+    },
+    err=>{
+      console.error('FS error:',err.code,err.message);
+      setConn(false);
+      setTimeout(startSync,5000);
+    }
+  );
+}
+function dbLoad(){return _cache;}
+function dbAdd(r){
+  r.id=Date.now().toString();r.ts=Date.now();r.created=new Date().toISOString();
+  FSCol.doc(r.id).set(r).catch(e=>console.error(e));
+  return r;
+}
+function dbUpdate(id,r){
+  const ex=_cache.find(x=>x.id===id)||{};
+  r.id=id;r.ts=ex.ts||Date.now();r.created=ex.created||new Date().toISOString();
+  r.updated=new Date().toISOString();
+  FSCol.doc(id).set(r).catch(e=>console.error(e));
+}
+function dbDelete(id){FSCol.doc(id).delete().catch(e=>console.error(e));}
+function refreshViews(){
+  if(document.getElementById('s-archivio').style.display!=='none')renderArchivio();
+  if(document.getElementById('s-checkout').style.display!=='none')renderCheckout();
+  if(document.getElementById('s-clienti').style.display!=='none')renderClienti();
+}
+
+// ══════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════
+const SK='hd_settings';
+function loadSettings(){try{return JSON.parse(localStorage.getItem(SK)||'{}');}catch{return{};}}
+function saveSettings(){
+  const s={
+    nome:document.getElementById('s-nome').value||'Hotel Derby',
+    cat:document.getElementById('s-cat').value||'',
+    ind:document.getElementById('s-ind').value||'',
+    tel:document.getElementById('s-tel').value||'',
+    tassa:parseFloat(document.getElementById('s-tassa').value)||1.50,
+    nmax:parseInt(document.getElementById('s-nmax').value)||5
+  };
+  localStorage.setItem(SK,JSON.stringify(s));
+  applySettings(s);
+  const el=document.getElementById('s-saved');
+  el.style.display='block';setTimeout(()=>el.style.display='none',2500);
+}
+function applySettings(s){
+  if(!s||!s.nome)return;
+  const p=s.nome.split(' ');const ul=p.pop();const re=p.join(' ');
+  document.getElementById('hname').innerHTML=(re?re+' ':'')+'<em>'+ul+'</em>';
+  document.title=s.nome+' — Reception';
+  if(s.tassa){document.getElementById('t-tar').value=s.tassa;document.getElementById('s-tassa').value=s.tassa;}
+  if(s.nmax)document.getElementById('s-nmax').value=s.nmax;
+  if(s.nome)document.getElementById('s-nome').value=s.nome;
+  if(s.cat)document.getElementById('s-cat').value=s.cat;
+  if(s.ind)document.getElementById('s-ind').value=s.ind;
+  if(s.tel)document.getElementById('s-tel').value=s.tel;
+}
+
+// ══════════════════════════════════════════════════════
+// TASSA
+// ══════════════════════════════════════════════════════
+function calcTassa(){
+  const ci=document.getElementById('f-ci').value;
+  const co=document.getElementById('f-co').value;
+  const tar=parseFloat(document.getElementById('t-tar').value)||0;
+  const ng=parseInt(document.getElementById('f-ng').value)||1;
+  const s=loadSettings();const nmax=s.nmax||5;
+  if(!ci||!co){
+    document.getElementById('t-notti').value='';
+    document.getElementById('t-osp').value='';
+    document.getElementById('t-tot').textContent='€ —';
+    document.getElementById('t-det').textContent='Inserisci date per il calcolo';
+    return;
+  }
+  const ntot=Math.max(0,Math.round((new Date(co)-new Date(ci))/86400000));
+  const nt=Math.min(ntot,nmax);
+  const tot=tar*ng*nt;
+  document.getElementById('t-notti').value=nt;
+  document.getElementById('t-osp').value=ng;
+  document.getElementById('t-tot').textContent='€ '+tot.toFixed(2);
+  document.getElementById('t-det').textContent=
+    ng+' pers. × '+nt+' notti × €'+tar.toFixed(2)+' = €'+tot.toFixed(2)+
+    (ntot>nmax?' (max '+nmax+' notti)':'');
+}
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let imgs=[];
+let editId=null;
+
+// ══════════════════════════════════════════════════════
+// UPLOAD
+// ══════════════════════════════════════════════════════
+const fi=document.getElementById('finput');
+const ci2=document.getElementById('cinput');
+const pgrid=document.getElementById('pgrid');
+const aibtn=document.getElementById('ai-btn');
+const uz=document.getElementById('uzone');
+
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');doFiles(e.dataTransfer.files);});
+fi.addEventListener('change',e=>{doFiles(e.target.files);e.target.value='';});
+ci2.addEventListener('change',e=>{doFiles(e.target.files);e.target.value='';});
+
+function doFiles(files){
+  Array.from(files).forEach(f=>{
+    if(!f.type.startsWith('image/')||imgs.length>=5)return;
+    const r=new FileReader();
+    r.onload=ev=>{imgs.push({file:f,url:ev.target.result});renderPreviews();};
+    r.readAsDataURL(f);
+  });
+}
+function renderPreviews(){
+  pgrid.innerHTML='';
+  imgs.forEach((img,i)=>{
+    const d=document.createElement('div');d.className='pitem';
+    d.innerHTML='<img src="'+img.url+'"><button class="prmbtn" onclick="rmImg('+i+')">×</button><div class="pbadge">Doc '+(i+1)+'</div>';
+    pgrid.appendChild(d);
+  });
+  aibtn.disabled=imgs.length===0;
+}
+function rmImg(i){imgs.splice(i,1);renderPreviews();}
+
+// ══════════════════════════════════════════════════════
+// MODE
+// ══════════════════════════════════════════════════════
+function setMode(m){
+  const isAI=m==='ai';
+  document.getElementById('m-ai').classList.toggle('on',isAI);
+  document.getElementById('m-man').classList.toggle('on',!isAI);
+  document.getElementById('upanel').style.display=isAI?'':'none';
+  document.getElementById('aibox').classList.remove('on');
+  document.getElementById('bnr-ok').classList.remove('on');
+  document.getElementById('ai-btn').style.display=isAI?'':'none';
+  document.getElementById('man-btn').style.display=isAI?'none':'';
+  if(!isAI)doManuale();
+}
+function doManuale(){
+  clearForm();
+  renderAltri(parseInt(document.getElementById('f-ng').value)-1,[]);
+  showForm();
+}
+function onNG(){
+  calcTassa();
+  if(document.getElementById('s-form').style.display!=='none')
+    renderAltri(parseInt(document.getElementById('f-ng').value)-1,[]);
+}
+
+// ══════════════════════════════════════════════════════
+// AI
+// ══════════════════════════════════════════════════════
+async function doAI(){
+  const ab=document.getElementById('aibox');
+  aibtn.disabled=true;ab.classList.add('on');
+  document.getElementById('bnr-ok').classList.remove('on');
+  const ng=parseInt(document.getElementById('f-ng').value);
+  const ca=[];
+  imgs.forEach(img=>{
+    ca.push({type:'image',source:{type:'base64',media_type:img.file.type||'image/jpeg',data:img.url.split(',')[1]}});
+  });
+  ca.push({type:'text',text:'Sei OCR hotel. Analizza documenti identità.\nRispondi SOLO JSON valido, zero backtick.\n{"capogruppo":{"nome":"","cognome":"","data_nascita":"YYYY-MM-DD","luogo_nascita":"","tipo_documento":"","numero_documento":"","luogo_rilascio":"","nazionalita":""},"altri_ospiti":[{"nome":"","cognome":"","data_nascita":"YYYY-MM-DD","luogo_nascita":"","nazionalita":""}]}\nPrimo doc=capogruppo. Max '+(ng-1)+' altri. Campi illeggibili="".\ntipo_documento: "Carta d\'Identità","Passaporto","Patente di Guida","Permesso di Soggiorno". Date YYYY-MM-DD.'});
+  try{
+    const res=await fetch('https://hotel-derby-proxy.monicarssi65.workers.dev',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:ca}]})});
+    const data=await res.json();
+    const txt=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    let p;try{p=JSON.parse(txt);}catch(_){const m=txt.match(/\{[\s\S]*\}/);if(m)p=JSON.parse(m[0]);else throw new Error('JSON non trovato');}
+    fillForm(p.capogruppo||{},p.altri_ospiti||[],ng);
+    ab.classList.remove('on');
+    document.getElementById('bnr-ok').classList.add('on');
+    showForm();
+  }catch(e){
+    ab.classList.remove('on');aibtn.disabled=false;
+    renderAltri(ng-1,[]);showForm();
+    alert('⚠️ Lettura AI non riuscita. Compila manualmente.');
+  }
+}
+
+function fillForm(c,altri,ng){
+  document.getElementById('c-nome').value=c.nome||'';
+  document.getElementById('c-cogn').value=c.cognome||'';
+  document.getElementById('c-ddn').value=c.data_nascita||'';
+  document.getElementById('c-ldn').value=c.luogo_nascita||'';
+  document.getElementById('c-ndoc').value=c.numero_documento||'';
+  document.getElementById('c-ril').value=c.luogo_rilascio||'';
+  document.getElementById('c-naz').value=c.nazionalita||'';
+  if(c.tipo_documento){const s=document.getElementById('c-tdoc');[...s.options].forEach(o=>{if(o.value===c.tipo_documento)o.selected=true;});}
+  renderAltri((ng||parseInt(document.getElementById('f-ng').value))-1,altri);
+}
+function clearForm(){
+  ['c-nome','c-cogn','c-ddn','c-ldn','c-ndoc','c-ril','c-naz'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('c-tdoc').selectedIndex=0;
+}
+function showForm(){
+  document.getElementById('s-form').style.display='block';
+  document.getElementById('st1').classList.remove('on');document.getElementById('st1').classList.add('done');
+  document.getElementById('st2').classList.add('on');
+  document.getElementById('s-form').scrollIntoView({behavior:'smooth'});
+}
+function renderAltri(count,data){
+  const panel=document.getElementById('altri-panel');
+  const cont=document.getElementById('altri-cont');
+  cont.innerHTML='';
+  if(count<=0){panel.style.display='none';return;}
+  panel.style.display='block';
+  for(let i=0;i<count;i++){
+    const d=data[i]||{};
+    const card=document.createElement('div');card.className='gcard';
+    card.innerHTML='<div class="gcttl">Ospite '+(i+2)+'</div><div class="fgrid">'+
+      '<div class="fg"><label>Nome</label><input type="text" id="o'+i+'-n" value="'+(d.nome||'')+'" placeholder="Nome"></div>'+
+      '<div class="fg"><label>Cognome</label><input type="text" id="o'+i+'-c" value="'+(d.cognome||'')+'" placeholder="Cognome"></div>'+
+      '<div class="fg"><label>Data di Nascita</label><input type="date" id="o'+i+'-d" value="'+(d.data_nascita||'')+'"></div>'+
+      '<div class="fg"><label>Luogo di Nascita</label><input type="text" id="o'+i+'-l" value="'+(d.luogo_nascita||'')+'" placeholder="Città"></div>'+
+      '<div class="fg"><label>Nazionalità</label><input type="text" id="o'+i+'-z" value="'+(d.nazionalita||'')+'" placeholder="es. Italiana"></div>'+
+      '</div>';
+    cont.appendChild(card);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// GENERA SCHEDA
+// ══════════════════════════════════════════════════════
+function collectData(){
+  const ng=parseInt(document.getElementById('f-ng').value);
+  const cap={
+    nome:document.getElementById('c-nome').value.trim(),
+    cogn:document.getElementById('c-cogn').value.trim(),
+    ddn_raw:document.getElementById('c-ddn').value,
+    ddn:fmt(document.getElementById('c-ddn').value),
+    ldn:document.getElementById('c-ldn').value.trim(),
+    tdoc:document.getElementById('c-tdoc').value,
+    ndoc:document.getElementById('c-ndoc').value.trim(),
+    ril:document.getElementById('c-ril').value.trim(),
+    naz:document.getElementById('c-naz').value.trim()
+  };
+  const altri=[];
+  for(let i=0;i<ng-1;i++){
+    altri.push({
+      nome:(document.getElementById('o'+i+'-n')?.value||'').trim(),
+      cogn:(document.getElementById('o'+i+'-c')?.value||'').trim(),
+      ddn_raw:document.getElementById('o'+i+'-d')?.value||'',
+      ddn:fmt(document.getElementById('o'+i+'-d')?.value||''),
+      ldn:(document.getElementById('o'+i+'-l')?.value||'').trim(),
+      naz:(document.getElementById('o'+i+'-z')?.value||'').trim(),
+      idx:i+2
+    });
+  }
+  return{cap,altri,ng,
+    tassa:document.getElementById('t-tot').textContent,
+    tdet:document.getElementById('t-det').textContent,
+    note:document.getElementById('f-note').value.trim()
+  };
+}
+
+function buildScheda(room,ci,co,oggi,cap,altri,ng,tassa,tdet,note,s){
+  const acd=altri.filter(o=>o.nome||o.cogn);
+  let ah='';
+  if(acd.length){
+    ah='<div class="ssttl">Altri Ospiti</div><div class="ogrid">'+
+      acd.map(o=>'<div class="ocard"><div class="onum">Ospite '+o.idx+'</div>'+
+        '<div class="sr2"><div class="sf"><label>Nome</label><div class="v">'+o.nome+'</div></div>'+
+        '<div class="sf"><label>Cognome</label><div class="v">'+o.cogn+'</div></div></div>'+
+        '<div class="sr2"><div class="sf"><label>Data Nascita</label><div class="v">'+o.ddn+'</div></div>'+
+        '<div class="sf"><label>Luogo Nascita</label><div class="v">'+o.ldn+'</div></div></div>'+
+        '<div class="sr2"><div class="sf"><label>Nazionalità</label><div class="v">'+o.naz+'</div></div></div>'+
+        '</div>').join('')+'</div>';
+  }
+  const nomeH=s&&s.nome?s.nome:'Hotel Derby';
+  const p=nomeH.split(' ');const ul=p.pop();const re=p.join(' ');
+  const th=tassa&&tassa!=='€ —'?'<div class="stassa"><div><div style="font-size:.55rem;font-family:\'DM Mono\',monospace;letter-spacing:.18em;text-transform:uppercase;color:#8B6914;">Tassa di Soggiorno</div><div style="font-size:.62rem;color:#8B6914;margin-top:.15rem;">'+tdet+'</div></div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;color:#8B6914;font-weight:600;">'+tassa+'</div></div>':'';
+  const nh=note?'<div class="snote"><div style="font-size:.5rem;font-family:\'DM Mono\',monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;">Note</div><div style="font-size:.88rem;color:var(--text);">'+note+'</div></div>':'';
+  const ind=s&&s.ind?'<div style="font-size:.6rem;font-family:\'DM Mono\',monospace;color:var(--muted);margin-top:.15rem;">'+s.ind+'</div>':'';
+  return '<div class="sw" id="sp">'+
+    '<div class="shead">'+
+    '<div><div class="shotel">'+(re?re+' ':'')+'<em>'+ul+'</em></div>'+ind+
+    '<div style="font-size:.62rem;font-family:\'DM Mono\',monospace;color:var(--muted);margin-top:.15rem;letter-spacing:.1em;">SCHEDA DI REGISTRAZIONE OSPITI</div></div>'+
+    '<div class="smeta"><div class="srn">Camera '+room+'</div><div>Check-in: '+ci+'</div><div>Check-out: '+co+'</div>'+
+    '<div style="margin-top:.35rem;font-size:.58rem;">Compilata: '+oggi+'</div></div>'+
+    '</div>'+
+    '<div class="ssttl">Capogruppo / Intestatario</div>'+
+    '<div class="sblk">'+
+    '<div class="sr2"><div class="sf"><label>Nome</label><div class="v">'+cap.nome+'</div></div>'+
+    '<div class="sf"><label>Cognome</label><div class="v">'+cap.cogn+'</div></div></div>'+
+    '<div class="sr2"><div class="sf"><label>Data di Nascita</label><div class="v">'+cap.ddn+'</div></div>'+
+    '<div class="sf"><label>Luogo di Nascita</label><div class="v">'+cap.ldn+'</div></div></div>'+
+    '<div class="sr3" style="margin-top:.35rem;">'+
+    '<div class="sf"><label>Tipo Documento</label><div class="v">'+cap.tdoc+'</div></div>'+
+    '<div class="sf"><label>N° Documento</label><div class="v">'+cap.ndoc+'</div></div>'+
+    '<div class="sf"><label>Luogo Rilascio</label><div class="v">'+cap.ril+'</div></div></div>'+
+    '<div class="sr2" style="margin-top:.35rem;"><div class="sf"><label>Nazionalità</label><div class="v">'+cap.naz+'</div></div></div>'+
+    '</div>'+ah+th+nh+
+    '<div class="sfoot">'+
+    '<div class="sfootxt">Ospiti: '+ng+' | Camera: '+room+'</div>'+
+    '<div><div class="firma-line"></div><div class="firma-lbl">Firma Capogruppo</div></div>'+
+    '<div class="sfootxt">Receptionist: ___________</div>'+
+    '</div></div>';
+}
+
+function generaScheda(){
+  const room=document.getElementById('f-camera').value||'—';
+  const ci=fmt(document.getElementById('f-ci').value);
+  const co=fmt(document.getElementById('f-co').value);
+  const oggi=fmt(new Date().toISOString().split('T')[0]);
+  const{cap,altri,ng,tassa,tdet,note}=collectData();
+  const s=loadSettings();
+  document.getElementById('scheda-out').innerHTML=buildScheda(room,ci,co,oggi,cap,altri,ng,tassa,tdet,note,s);
+  document.getElementById('s-scheda').style.display='block';
+  document.getElementById('st2').classList.remove('on');document.getElementById('st2').classList.add('done');
+  document.getElementById('st3').classList.add('on');
+  document.getElementById('s-scheda').scrollIntoView({behavior:'smooth'});
+  // Salva DB
+  const rec={
+    camera:document.getElementById('f-camera').value||'',
+    checkin:ci,checkout:co,
+    ci_raw:document.getElementById('f-ci').value,
+    co_raw:document.getElementById('f-co').value,
+    note,tassa,tdet,
+    cap:{nome:cap.nome,cogn:cap.cogn,ddn:cap.ddn_raw,ldn:cap.ldn,tdoc:cap.tdoc,ndoc:cap.ndoc,ril:cap.ril,naz:cap.naz},
+    altri:altri.map(o=>({nome:o.nome,cogn:o.cogn,ddn:o.ddn_raw,ldn:o.ldn,naz:o.naz}))
+  };
+  if(editId){dbUpdate(editId,rec);editId=null;document.getElementById('bnr-ed').classList.remove('on');}
+  else{dbAdd(rec);}
+}
+
+// ══════════════════════════════════════════════════════
+// MODIFICA
+// ══════════════════════════════════════════════════════
+function editRec(id){
+  const r=_cache.find(x=>x.id===id);if(!r)return;
+  editId=id;closeModal();showV('checkin');
+  document.getElementById('f-camera').value=r.camera||'';
+  document.getElementById('f-ci').value=r.ci_raw||'';
+  document.getElementById('f-co').value=r.co_raw||'';
+  document.getElementById('f-note').value=r.note||'';
+  const no=1+(r.altri?.length||0);
+  document.getElementById('f-ng').value=no;
+  calcTassa();setMode('man');
+  document.getElementById('s-form').style.display='block';
+  const c=r.cap||{};
+  document.getElementById('c-nome').value=c.nome||'';
+  document.getElementById('c-cogn').value=c.cogn||'';
+  document.getElementById('c-ddn').value=c.ddn||'';
+  document.getElementById('c-ldn').value=c.ldn||'';
+  document.getElementById('c-ndoc').value=c.ndoc||'';
+  document.getElementById('c-ril').value=c.ril||'';
+  document.getElementById('c-naz').value=c.naz||'';
+  if(c.tdoc){const s=document.getElementById('c-tdoc');[...s.options].forEach(o=>{if(o.value===c.tdoc)o.selected=true;});}
+  renderAltri(no-1,r.altri||[]);
+  document.getElementById('bnr-ed-txt').textContent='Modifica: Camera '+r.camera+' — '+(c.cogn||'')+' '+(c.nome||'');
+  document.getElementById('bnr-ed').classList.add('on');
+  document.getElementById('st1').classList.remove('on');document.getElementById('st1').classList.add('done');
+  document.getElementById('st2').classList.add('on');
+  document.getElementById('st3').classList.remove('on','done');
+  document.getElementById('s-form').scrollIntoView({behavior:'smooth'});
+}
+
+// ══════════════════════════════════════════════════════
+// JPEG
+// ══════════════════════════════════════════════════════
+async function doJPEG(){
+  const area=document.getElementById('sp');
+  if(!area){alert('Genera prima la scheda.');return;}
+  try{
+    const canvas=await html2canvas(area,{scale:2,useCORS:true,backgroundColor:'#F5EDD8'});
+    const url=canvas.toDataURL('image/jpeg',.92);
+    const room=document.getElementById('f-camera').value||'camera';
+    document.getElementById('jprev').src=url;
+    document.getElementById('jlink').href=url;
+    document.getElementById('jlink').download='scheda-'+room+'-'+new Date().toISOString().split('T')[0]+'.jpg';
+    document.getElementById('joverlay').classList.add('on');
+  }catch(e){alert('Errore JPEG.');}
+}
+
+// ══════════════════════════════════════════════════════
+// CHECKOUT
+// ══════════════════════════════════════════════════════
+function renderCheckout(){
+  const today=new Date().toISOString().split('T')[0];
+  const lbl=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('co-lbl').textContent=lbl.charAt(0).toUpperCase()+lbl.slice(1);
+  const recs=dbLoad().filter(r=>r.co_raw===today);
+  const grid=document.getElementById('co-grid');
+  if(!recs.length){grid.innerHTML='<div class="coempty">Nessun checkout previsto per oggi.</div>';return;}
+  grid.innerHTML=recs.map(r=>{
+    const c=r.cap||{};const n=1+(r.altri?.filter(o=>o.nome||o.cogn).length||0);
+    return '<div class="cocard"><div>'+
+      '<div class="con">'+(c.cogn||'')+' '+(c.nome||'')+'</div>'+
+      '<div class="com">'+n+' ospite'+(n>1?'i':'')+' · Check-in: '+r.checkin+(c.naz?' · '+c.naz:'')+'</div>'+
+      (r.note?'<div class="com" style="font-style:italic;">'+r.note+'</div>':'')+
+      '</div><div class="coroom">'+(r.camera||'—')+'</div></div>';
+  }).join('');
+}
+function printCheckout(){
+  const today=new Date().toISOString().split('T')[0];
+  const recs=dbLoad().filter(r=>r.co_raw===today);
+  const lbl=document.getElementById('co-lbl').textContent;
+  const s=loadSettings();
+  const win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Checkout</title>'+
+    '<style>body{font-family:Georgia,serif;padding:2rem;max-width:900px;margin:auto;}'+
+    'h2{font-size:1.4rem;margin-bottom:.2rem;}p{font-size:.8rem;color:#666;margin-bottom:1.5rem;}'+
+    'table{width:100%;border-collapse:collapse;font-size:.85rem;}'+
+    'th{background:#f0e8d0;padding:.5rem .7rem;text-align:left;border-bottom:2px solid #C9A84C;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;}'+
+    'td{padding:.5rem .7rem;border-bottom:1px solid #e8dcc4;}</style></head><body>'+
+    '<h2>'+(s.nome||'Hotel Derby')+' — Checkout</h2>'+
+    '<p>'+lbl+' · '+recs.length+' partenz'+(recs.length===1?'a':'e')+'</p>'+
+    '<table><thead><tr><th>Camera</th><th>Cognome Nome</th><th>Naz.</th><th>Ospiti</th><th>Check-in</th><th>Note</th><th>✓</th></tr></thead><tbody>'+
+    recs.map(r=>{const c=r.cap||{};const n=1+(r.altri?.filter(o=>o.nome||o.cogn).length||0);
+      return '<tr><td><strong>'+(r.camera||'—')+'</strong></td><td>'+(c.cogn||'')+' '+(c.nome||'')+'</td>'+
+        '<td>'+(c.naz||'—')+'</td><td>'+n+'</td><td>'+r.checkin+'</td>'+
+        '<td style="font-size:.75rem;">'+(r.note||'')+'</td><td>&nbsp;&nbsp;</td></tr>';}).join('')+
+    '</tbody></table><script>window.onload=()=>window.print();<\/script></body></html>');
+  win.document.close();
+}
+
+// ══════════════════════════════════════════════════════
+// SAVE HTML
+// ══════════════════════════════════════════════════════
+function saveHTML(){
+  const cnt=document.getElementById('scheda-out').innerHTML;
+  const room=document.getElementById('f-camera').value||'camera';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet"><style>'+document.querySelector('style').textContent+'body{background:#f0e8d0;padding:2rem;}</style></head><body>'+cnt+'</body></html>'],{type:'text/html'}));
+  a.download='scheda-'+room+'-'+new Date().toISOString().split('T')[0]+'.html';a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function backToForm(){
+  document.getElementById('s-scheda').style.display='none';
+  document.getElementById('st3').classList.remove('on','done');
+  document.getElementById('st2').classList.remove('done');document.getElementById('st2').classList.add('on');
+  document.getElementById('s-form').scrollIntoView({behavior:'smooth'});
+}
+function resetAll(){
+  imgs=[];editId=null;renderPreviews();
+  document.getElementById('s-form').style.display='none';
+  document.getElementById('s-scheda').style.display='none';
+  document.getElementById('aibox').classList.remove('on');
+  document.getElementById('bnr-ok').classList.remove('on');
+  document.getElementById('bnr-ed').classList.remove('on');
+  aibtn.disabled=true;clearForm();
+  document.getElementById('altri-cont').innerHTML='';
+  document.getElementById('altri-panel').style.display='none';
+  document.getElementById('f-camera').value='';
+  document.getElementById('f-note').value='';
+  document.getElementById('f-ci').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-co').value=new Date(Date.now()+86400000).toISOString().split('T')[0];
+  ['st1','st2','st3'].forEach(id=>document.getElementById(id).classList.remove('on','done'));
+  document.getElementById('st1').classList.add('on');
+  setMode('ai');calcTassa();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+const allS=['s-checkin','s-checkout','s-archivio','s-clienti','s-tassa','s-impost'];
+const allN=['nb-ci','nb-co','nb-ar','nb-cl','nb-ts','nb-im'];
+function showV(v){
+  allS.forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  document.getElementById('s-form').style.display='none';
+  document.getElementById('s-scheda').style.display='none';
+  document.getElementById('steps').style.display='none';
+  allN.forEach(id=>document.getElementById(id).classList.remove('on'));
+  if(v==='checkin'){
+    document.getElementById('s-checkin').style.display='';
+    document.getElementById('steps').style.display='';
+    document.getElementById('nb-ci').classList.add('on');
+  }else if(v==='checkout'){
+    document.getElementById('s-checkout').style.display='';
+    document.getElementById('nb-co').classList.add('on');
+    renderCheckout();
+  }else if(v==='archivio'){
+    document.getElementById('s-archivio').style.display='';
+    document.getElementById('nb-ar').classList.add('on');
+    renderArchivio();
+  }else if(v==='clienti'){
+    document.getElementById('s-clienti').style.display='';
+    document.getElementById('nb-cl').classList.add('on');
+    renderClienti();
+  }else if(v==='tassa'){
+    document.getElementById('s-tassa').style.display='';
+    document.getElementById('nb-ts').classList.add('on');
+    initTassa();
+  }else if(v==='impost'){
+    document.getElementById('s-impost').style.display='';
+    document.getElementById('nb-im').classList.add('on');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// ARCHIVIO
+// ══════════════════════════════════════════════════════
+let sKey='ci_raw',sDir=-1;
+// ══════════════════════════════════════════════════════
+// TASSA MENSILE
+// ══════════════════════════════════════════════════════
+function initTassa(){
+  const sel=document.getElementById('ts-month');
+  const recs=dbLoad();
+  // Collect all months present in records
+  const months=new Set();
+  const now=new Date();
+  // Always include current month
+  months.add(now.getFullYear()+'-'+(String(now.getMonth()+1).padStart(2,'0')));
+  recs.forEach(r=>{
+    if(r.ci_raw){months.add(r.ci_raw.slice(0,7));}
+    if(r.co_raw){months.add(r.co_raw.slice(0,7));}
+  });
+  const sorted=[...months].sort().reverse();
+  sel.innerHTML=sorted.map(m=>{
+    const [y,mo]=m.split('-');
+    const label=new Date(y,mo-1,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+    return `<option value="${m}">${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+  }).join('');
+  renderTassa();
+}
+
+function renderTassa(){
+  const sel=document.getElementById('ts-month');
+  const ym=sel.value; // "2025-06"
+  const [yr,mo]=ym.split('-').map(Number);
+  const s=loadSettings();
+  const nmax=s.nmax||5;
+  const tar=s.tassa||1.50;
+  const recs=dbLoad();
+
+  // Include records that OVERLAP with the selected month
+  const mStart=new Date(yr,mo-1,1);
+  const mEnd=new Date(yr,mo,0); // last day of month
+
+  const rows=[];
+  recs.forEach(r=>{
+    if(!r.ci_raw||!r.co_raw)return;
+    const ci=new Date(r.ci_raw);
+    const co=new Date(r.co_raw);
+    if(co<=mStart||ci>mEnd)return; // no overlap
+
+    const n=1+(r.altri?.filter(o=>o.nome||o.cogn).length||0);
+    // Total nights of stay
+    const ntot=Math.round((co-ci)/(1000*60*60*24));
+    const nt=Math.min(ntot,nmax);
+    const importo=n*nt*tar;
+    const c=r.cap||{};
+    rows.push({ci:r.checkin,co:r.checkout,camera:r.camera||'—',
+      nome:(c.cogn||'')+' '+(c.nome||''),ospiti:n,notti:nt,importo,ntot});
+  });
+
+  rows.sort((a,b)=>a.ci.localeCompare(b.ci));
+
+  const tbody=document.getElementById('ts-tbody');
+  const tfoot=document.getElementById('ts-tfoot');
+  const empty=document.getElementById('ts-empty');
+  const stats=document.getElementById('ts-stats');
+
+  if(!rows.length){
+    tbody.innerHTML='';tfoot.innerHTML='';
+    empty.style.display='';
+    document.getElementById('ts-table').style.display='none';
+    stats.textContent='Nessuna scheda';
+    return;
+  }
+  empty.style.display='none';
+  document.getElementById('ts-table').style.display='';
+
+  const totNotti=rows.reduce((s,r)=>s+r.notti,0);
+  const totImporto=rows.reduce((s,r)=>s+r.importo,0);
+  const totOspiti=rows.reduce((s,r)=>s+r.ospiti,0);
+
+  stats.textContent=rows.length+' prenotazioni · '+totNotti+' notti tassate · €'+totImporto.toFixed(2)+' totale';
+
+  tbody.innerHTML=rows.map(r=>`<tr>
+    <td>${r.ci}</td><td>${r.co}</td>
+    <td><strong>${r.camera}</strong></td>
+    <td>${r.nome||'—'}</td>
+    <td style="text-align:center;">${r.ospiti}</td>
+    <td style="text-align:center;">${r.notti}${r.ntot>nmax?' <span style="font-size:.65rem;color:#a08040;">(max)</span>':''}</td>
+    <td style="text-align:right;font-weight:600;">€${r.importo.toFixed(2)}</td>
+  </tr>`).join('');
+
+  tfoot.innerHTML=`<tr style="background:#2a2318;">
+    <td colspan="4" style="font-family:'Cormorant Garamond',serif;font-size:.85rem;color:var(--gold);padding:.6rem .7rem;letter-spacing:.05em;">TOTALE MESE</td>
+    <td style="text-align:center;font-weight:700;color:var(--gold);">${totOspiti}</td>
+    <td style="text-align:center;font-weight:700;color:var(--gold);">${totNotti}</td>
+    <td style="text-align:right;font-weight:700;color:var(--gold);font-size:1rem;">€${totImporto.toFixed(2)}</td>
+  </tr>`;
+}
+
+function printTassa(){
+  const sel=document.getElementById('ts-month');
+  const ym=sel.value;
+  const [yr,mo]=ym.split('-').map(Number);
+  const label=new Date(yr,mo-1,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+  const s=loadSettings();
+  const tbl=document.getElementById('ts-table');
+  const stats=document.getElementById('ts-stats').textContent;
+  const win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tassa Soggiorno</title>'+
+    '<style>body{font-family:Georgia,serif;padding:2rem;max-width:900px;margin:auto;}'+
+    'h2{font-size:1.3rem;margin-bottom:.2rem;}p{font-size:.8rem;color:#666;margin-bottom:1.5rem;}'+
+    'table{width:100%;border-collapse:collapse;font-size:.82rem;}'+
+    'th{background:#f0e8d0;padding:.5rem .7rem;text-align:left;border-bottom:2px solid #C9A84C;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;}'+
+    'td{padding:.5rem .7rem;border-bottom:1px solid #e8dcc4;}'+
+    'tfoot td{background:#fdf6e3;font-weight:700;border-top:2px solid #C9A84C;}</style></head><body>'+
+    '<h2>'+(s.nome||'Hotel')+' — Tassa di Soggiorno</h2>'+
+    '<p>'+label.charAt(0).toUpperCase()+label.slice(1)+' · '+stats+'</p>'+
+    tbl.outerHTML+
+    '<script>window.onload=()=>window.print();<\/script></body></html>');
+  win.document.close();
+}
+
+function sortBy(k){
+  if(sKey===k)sDir*=-1;else{sKey=k;sDir=-1;}
+  document.querySelectorAll('.atable th').forEach(t=>t.classList.remove('sorted'));
+  const map={ci_raw:'th-ci',co_raw:'th-co',camera:'th-cam',cap:'th-cap',naz:'th-naz'};
+  if(map[k]){const t=document.getElementById(map[k]);if(t){t.classList.add('sorted');t.querySelector('.sa').textContent=sDir===1?'↑':'↓';}}
+  renderArchivio();
+}
+function renderArchivio(){
+  const q=(document.getElementById('a-search')?.value||'').toLowerCase().trim();
+  let recs=dbLoad();
+  if(q)recs=recs.filter(r=>{const c=r.cap||{};
+    return[c.nome,c.cogn,c.naz,r.camera,r.checkin,r.checkout,r.note]
+      .concat((r.altri||[]).map(o=>o.nome+' '+o.cogn)).join(' ').toLowerCase().includes(q);});
+  recs.sort((a,b)=>{
+    let va,vb;
+    if(sKey==='cap'){va=((a.cap?.cogn||'')+(a.cap?.nome||'')).toLowerCase();vb=((b.cap?.cogn||'')+(b.cap?.nome||'')).toLowerCase();}
+    else if(sKey==='naz'){va=(a.cap?.naz||'').toLowerCase();vb=(b.cap?.naz||'').toLowerCase();}
+    else{va=(a[sKey]||'').toLowerCase();vb=(b[sKey]||'').toLowerCase();}
+    return va<vb?-sDir:va>vb?sDir:0;
+  });
+  const tb=document.getElementById('a-tbody');
+  const emp=document.getElementById('a-empty');
+  document.getElementById('a-stats').textContent=dbLoad().length+' schede'+(q?' · '+recs.length+' risultati':'');
+  if(!recs.length){tb.innerHTML='';emp.style.display='block';return;}
+  emp.style.display='none';
+  tb.innerHTML=recs.map(r=>{const c=r.cap||{};const n=1+(r.altri?.filter(o=>o.nome||o.cogn).length||0);
+    return '<tr>'+
+      '<td class="tdd">'+r.checkin+'</td><td class="tdd">'+r.checkout+'</td>'+
+      '<td class="tdc">'+(r.camera||'—')+'</td>'+
+      '<td class="tdn">'+(c.cogn||'')+' '+(c.nome||'')+'</td>'+
+      '<td class="tdd">'+(c.naz||'—')+'</td>'+
+      '<td><span class="tdg">'+n+' osp.</span></td>'+
+      '<td class="tdact">'+
+        '<button class="tbtn" onclick="openDetail(\''+r.id+'\')">👁</button>'+
+        '<button class="tbtn" onclick="editRec(\''+r.id+'\')">✏️</button>'+
+        '<button class="tbtn" onclick="ristampa(\''+r.id+'\')">🖨️</button>'+
+        '<button class="tbtn d" onclick="confDel(\''+r.id+'\')">🗑️</button>'+
+      '</td></tr>';}).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// CLIENTI
+// ══════════════════════════════════════════════════════
+function renderClienti(){
+  const q=(document.getElementById('cl-search')?.value||'').toLowerCase().trim();
+  const recs=dbLoad();
+  const map={};
+  recs.forEach(r=>{
+    const c=r.cap||{};
+    const k=(c.cogn||'')+'_'+(c.nome||'')+'_'+(c.ddn||'');
+    if(!map[k])map[k]={nome:c.nome,cogn:c.cogn,ddn:c.ddn,naz:c.naz,sogg:[]};
+    map[k].sogg.push({cam:r.camera,ci:r.checkin,co:r.checkout});
+    (r.altri||[]).forEach(o=>{
+      if(!o.nome&&!o.cogn)return;
+      const ok=(o.cogn||'')+'_'+(o.nome||'')+'_'+(o.ddn||'');
+      if(!map[ok])map[ok]={nome:o.nome,cogn:o.cogn,ddn:o.ddn,naz:o.naz,sogg:[]};
+      map[ok].sogg.push({cam:r.camera,ci:r.checkin,co:r.checkout});
+    });
+  });
+  let cl=Object.values(map).sort((a,b)=>((a.cogn||'')+(a.nome||'')).localeCompare((b.cogn||'')+(b.nome||'')));
+  if(q)cl=cl.filter(c=>((c.cogn||'')+' '+(c.nome||'')).toLowerCase().includes(q));
+  const lista=document.getElementById('cl-lista');
+  const emp=document.getElementById('cl-empty');
+  document.getElementById('cl-stats').textContent=Object.keys(map).length+' clienti'+(q?' · '+cl.length+' risultati':'');
+  if(!cl.length){lista.innerHTML='';emp.style.display='block';return;}
+  emp.style.display='none';
+  lista.innerHTML=cl.map(c=>'<div class="clcard">'+
+    '<div><div class="cln">'+(c.cogn||'')+' '+(c.nome||'')+'</div>'+
+    '<div class="clm">'+(c.naz||'—')+(c.ddn?' · '+fmt(c.ddn):'')+'</div></div>'+
+    '<div class="cls"><div style="color:var(--gold);margin-bottom:.2rem;">'+c.sogg.length+' soggiorn'+(c.sogg.length===1?'o':'i')+'</div>'+
+    c.sogg.slice(0,3).map(s=>'<div>Cam. '+s.cam+' · '+s.ci+'→'+s.co+'</div>').join('')+
+    (c.sogg.length>3?'<div style="opacity:.6;">+'+( c.sogg.length-3)+' altri</div>':'')+
+    '</div></div>').join('');
+}
+
+// ══════════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════════
+function openDetail(id){
+  const r=_cache.find(x=>x.id===id);if(!r)return;
+  const c=r.cap||{};const altri=(r.altri||[]).filter(o=>o.nome||o.cogn);
+  let ah='';
+  if(altri.length){ah='<div class="dsec">Altri Ospiti ('+altri.length+')</div>'+
+    altri.map((o,i)=>'<div class="odc">'+
+      '<div style="font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;">Ospite '+(i+2)+'</div>'+
+      '<div class="dgrid">'+
+        '<div class="df"><label>Nome</label><div class="dv">'+(o.nome||'—')+'</div></div>'+
+        '<div class="df"><label>Cognome</label><div class="dv">'+(o.cogn||'—')+'</div></div>'+
+        '<div class="df"><label>Data Nascita</label><div class="dv">'+(o.ddn?fmt(o.ddn):'—')+'</div></div>'+
+        '<div class="df"><label>Luogo Nascita</label><div class="dv">'+(o.ldn||'—')+'</div></div>'+
+        '<div class="df"><label>Nazionalità</label><div class="dv">'+(o.naz||'—')+'</div></div>'+
+      '</div></div>').join('');}
+  const th=r.tassa&&r.tassa!=='€ —'?'<div class="dsec">Tassa di Soggiorno</div>'+
+    '<div style="background:rgba(201,168,76,.08);border-radius:4px;padding:.65rem .9rem;margin-bottom:.8rem;display:flex;justify-content:space-between;">'+
+    '<span style="font-size:.7rem;color:var(--muted);">'+(r.tdet||'')+'</span>'+
+    '<strong style="color:var(--gold);">'+r.tassa+'</strong></div>':'';
+  const nh=r.note?'<div class="dsec">Note</div><div style="background:var(--dark3);border-radius:4px;padding:.65rem .9rem;margin-bottom:.8rem;font-size:.8rem;color:var(--cream2);">'+r.note+'</div>':'';
+  document.getElementById('modal-cnt').innerHTML=
+    '<div class="mtitle">Camera '+(r.camera||'—')+' · '+r.checkin+' → '+r.checkout+'</div>'+
+    '<div style="font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.8rem;">'+
+    'Registrata: '+(r.created?new Date(r.created).toLocaleString('it-IT'):'—')+
+    (r.updated?' · Modificata: '+new Date(r.updated).toLocaleString('it-IT'):'')+
+    '</div>'+
+    '<div class="dsec">Capogruppo</div>'+
+    '<div class="dgrid">'+
+      '<div class="df"><label>Nome</label><div class="dv">'+(c.nome||'—')+'</div></div>'+
+      '<div class="df"><label>Cognome</label><div class="dv">'+(c.cogn||'—')+'</div></div>'+
+      '<div class="df"><label>Data Nascita</label><div class="dv">'+(c.ddn?fmt(c.ddn):'—')+'</div></div>'+
+      '<div class="df"><label>Luogo Nascita</label><div class="dv">'+(c.ldn||'—')+'</div></div>'+
+      '<div class="df"><label>Tipo Documento</label><div class="dv">'+(c.tdoc||'—')+'</div></div>'+
+      '<div class="df"><label>N° Documento</label><div class="dv">'+(c.ndoc||'—')+'</div></div>'+
+      '<div class="df"><label>Luogo Rilascio</label><div class="dv">'+(c.ril||'—')+'</div></div>'+
+      '<div class="df"><label>Nazionalità</label><div class="dv">'+(c.naz||'—')+'</div></div>'+
+    '</div>'+ah+th+nh+
+    '<div class="brow" style="margin-top:1rem;">'+
+      '<button class="btn btn-o" onclick="closeModal();editRec(\''+id+'\')">✏️ Modifica</button>'+
+      '<button class="btn btn-o" onclick="closeModal();ristampa(\''+id+'\')">🖨️ Ristampa</button>'+
+      '<button class="btn btn-d" onclick="showCD(\''+id+'\')">🗑️ Elimina</button>'+
+    '</div>'+
+    '<div class="cdel" id="cd-'+id+'">'+
+      '⚠️ Eliminare definitivamente?'+
+      '<button class="btn btn-d" style="padding:.35rem .65rem;font-size:.6rem;" onclick="delRec(\''+id+'\')">Sì, elimina</button>'+
+      '<button class="tbtn" onclick="document.getElementById(\'cd-'+id+'\').classList.remove(\'on\')">Annulla</button>'+
+    '</div>';
+  document.getElementById('modal').classList.add('on');
+}
+function showCD(id){const e=document.getElementById('cd-'+id);if(e)e.classList.add('on');}
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+function confDel(id){openDetail(id);setTimeout(()=>showCD(id),60);}
+function delRec(id){dbDelete(id);closeModal();renderArchivio();}
+
+// ══════════════════════════════════════════════════════
+// RISTAMPA
+// ══════════════════════════════════════════════════════
+function ristampa(id){
+  const r=_cache.find(x=>x.id===id);if(!r)return;
+  const c=r.cap||{};
+  const cap={nome:c.nome||'',cogn:c.cogn||'',ddn:c.ddn||'',ddn_raw:c.ddn||'',
+    ldn:c.ldn||'',tdoc:c.tdoc||'',ndoc:c.ndoc||'',ril:c.ril||'',naz:c.naz||''};
+  cap.ddn=fmt(cap.ddn_raw);
+  const altri=(r.altri||[]).map((o,i)=>({
+    nome:o.nome||'',cogn:o.cogn||'',ddn:fmt(o.ddn||''),ddn_raw:o.ddn||'',
+    ldn:o.ldn||'',naz:o.naz||'',idx:i+2}));
+  const s=loadSettings();
+  const html=buildScheda(r.camera,r.checkin,r.checkout,
+    r.created?new Date(r.created).toLocaleDateString('it-IT'):'—',
+    cap,altri,1+altri.length,r.tassa,r.tdet,r.note,s);
+  const win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">'+
+    '<style>'+document.querySelector('style').textContent+'body{background:#f0e8d0;padding:2rem;}</style></head>'+
+    '<body>'+html+'<script>window.onload=()=>window.print();<\/script></body></html>');
+  win.document.close();
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════════
+function exportCSV(){
+  const recs=dbLoad();if(!recs.length){alert('Nessuna scheda.');return;}
+  const h=['ID','Data','Camera','Check-in','Check-out','Nome','Cognome','DataNascita','LuogoNascita','TipoDoc','NDoc','Rilascio','Naz','NrOspiti','Tassa','Note'];
+  const rows=recs.map(r=>{const c=r.cap||{};const n=1+(r.altri?.filter(o=>o.nome||o.cogn).length||0);
+    return[r.id,r.created?new Date(r.created).toLocaleString('it-IT'):'',r.camera,r.checkin,r.checkout,
+      c.nome,c.cogn,c.ddn,c.ldn,c.tdoc,c.ndoc,c.ril,c.naz,n,r.tassa||'',r.note||'']
+      .map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"');});
+  dlBlob([h.join(','),...rows.map(r=>r.join(','))].join('\n'),'archivio-'+today()+'.csv','text/csv');
+}
+function exportJSON(){
+  const r=dbLoad();if(!r.length){alert('Nessuna scheda.');return;}
+  dlBlob(JSON.stringify(r,null,2),'archivio-'+today()+'.json','application/json');
+}
+function dlBlob(c,f,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=f;a.click();}
+
+// ══════════════════════════════════════════════════════
+// SYNC
+// ══════════════════════════════════════════════════════
+function syncExport(){
+  const data=dbLoad();
+  if(!data.length){alert('Nessuna scheda da esportare.');return;}
+  dlBlob(JSON.stringify(data),'hotelderby-sync-'+today()+'.json','application/json');
+}
+function syncImport(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json';
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!Array.isArray(data)){alert('File non valido.');return;}
+        // Importa nel DB Firebase
+        let added=0;
+        data.forEach(rec=>{
+          if(!_cache.find(x=>x.id===rec.id)){
+            FSCol.doc(rec.id).set(rec).catch(e=>console.error(e));
+            added++;
+          }
+        });
+        alert('Importate '+added+' nuove schede.');
+      }catch(e){alert('Errore: '+e.message);}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function fmt(str){if(!str)return'—';const p=str.split('-');if(p.length!==3)return str;return p[2]+'/'+p[1]+'/'+p[0];}
+function today(){return new Date().toISOString().split('T')[0];}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+document.getElementById('f-ci').value=today();
+document.getElementById('f-co').value=new Date(Date.now()+86400000).toISOString().split('T')[0];
+document.getElementById('f-ci').addEventListener('change',calcTassa);
+document.getElementById('f-co').addEventListener('change',calcTassa);
+document.getElementById('t-tar').addEventListener('change',calcTassa);
+applySettings(loadSettings());
+calcTassa();
+startSync();
+</script>
+</body>
+</html>
