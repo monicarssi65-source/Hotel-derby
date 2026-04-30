@@ -252,6 +252,7 @@ textarea{resize:vertical;min-height:65px;}
     <button class="nb" id="nb-co" onclick="showV('checkout')">🔑 Checkout</button>
     <button class="nb" id="nb-ar" onclick="showV('archivio')">📂 Archivio</button>
     <button class="nb" id="nb-cl" onclick="showV('clienti')">👥 Clienti</button>
+    <button class="nb" id="nb-ts" onclick="showV('tassa')">💶 Tassa</button>
     <button class="nb" id="nb-im" onclick="showV('impost')">⚙️ Hotel</button>
     <button class="nb" onclick="syncExport()">📤 Sync</button>
   </div>
@@ -458,6 +459,36 @@ textarea{resize:vertical;min-height:65px;}
       <div class="aempty" id="cl-empty" style="display:none;">
         <div style="font-size:2rem;opacity:.4;margin-bottom:.6rem;">👤</div>
         <div>Nessun cliente</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASSA MENSILE -->
+  <div id="s-tassa" style="display:none;">
+    <div class="panel">
+      <div class="ptitle">💶 Tassa di Soggiorno
+        <button class="btn btn-o" style="margin-left:auto;font-size:.58rem;padding:.38rem .8rem;" onclick="printTassa()">🖨️ Stampa</button>
+      </div>
+      <div class="atbar" style="flex-wrap:wrap;gap:.6rem;">
+        <div class="sw2" style="width:auto;">
+          <span class="sico">📅</span>
+          <select id="ts-month" onchange="renderTassa()" style="background:transparent;border:none;color:var(--gold);font-size:.85rem;outline:none;cursor:pointer;padding:.1rem .3rem;"></select>
+        </div>
+        <div class="astats" id="ts-stats"></div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="atable" id="ts-table">
+          <thead><tr>
+            <th>Check-In</th><th>Check-Out</th><th>Camera</th>
+            <th>Capogruppo</th><th>Ospiti</th><th>Notti tax.</th><th>Importo</th>
+          </tr></thead>
+          <tbody id="ts-tbody"></tbody>
+          <tfoot id="ts-tfoot"></tfoot>
+        </table>
+      </div>
+      <div class="aempty" id="ts-empty" style="display:none;">
+        <div style="font-size:2rem;opacity:.4;margin-bottom:.6rem;">💶</div>
+        <div>Nessuna scheda per questo mese</div>
       </div>
     </div>
   </div>
@@ -703,9 +734,10 @@ async function doAI(){
   try{
     const res=await fetch('https://hotel-derby-proxy.monicarssi65.workers.dev',{method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:ca}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:ca}]})});
     const data=await res.json();
-    const p=JSON.parse(data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+    const txt=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    let p;try{p=JSON.parse(txt);}catch(_){const m=txt.match(/\{[\s\S]*\}/);if(m)p=JSON.parse(m[0]);else throw new Error('JSON non trovato');}
     fillForm(p.capogruppo||{},p.altri_ospiti||[],ng);
     ab.classList.remove('on');
     document.getElementById('bnr-ok').classList.add('on');
@@ -993,8 +1025,8 @@ function resetAll(){
   setMode('ai');calcTassa();
   window.scrollTo({top:0,behavior:'smooth'});
 }
-const allS=['s-checkin','s-checkout','s-archivio','s-clienti','s-impost'];
-const allN=['nb-ci','nb-co','nb-ar','nb-cl','nb-im'];
+const allS=['s-checkin','s-checkout','s-archivio','s-clienti','s-tassa','s-impost'];
+const allN=['nb-ci','nb-co','nb-ar','nb-cl','nb-ts','nb-im'];
 function showV(v){
   allS.forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
   document.getElementById('s-form').style.display='none';
@@ -1017,6 +1049,10 @@ function showV(v){
     document.getElementById('s-clienti').style.display='';
     document.getElementById('nb-cl').classList.add('on');
     renderClienti();
+  }else if(v==='tassa'){
+    document.getElementById('s-tassa').style.display='';
+    document.getElementById('nb-ts').classList.add('on');
+    initTassa();
   }else if(v==='impost'){
     document.getElementById('s-impost').style.display='';
     document.getElementById('nb-im').classList.add('on');
@@ -1027,6 +1063,123 @@ function showV(v){
 // ARCHIVIO
 // ══════════════════════════════════════════════════════
 let sKey='ci_raw',sDir=-1;
+// ══════════════════════════════════════════════════════
+// TASSA MENSILE
+// ══════════════════════════════════════════════════════
+function initTassa(){
+  const sel=document.getElementById('ts-month');
+  const recs=dbLoad();
+  // Collect all months present in records
+  const months=new Set();
+  const now=new Date();
+  // Always include current month
+  months.add(now.getFullYear()+'-'+(String(now.getMonth()+1).padStart(2,'0')));
+  recs.forEach(r=>{
+    if(r.ci_raw){months.add(r.ci_raw.slice(0,7));}
+    if(r.co_raw){months.add(r.co_raw.slice(0,7));}
+  });
+  const sorted=[...months].sort().reverse();
+  sel.innerHTML=sorted.map(m=>{
+    const [y,mo]=m.split('-');
+    const label=new Date(y,mo-1,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+    return `<option value="${m}">${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+  }).join('');
+  renderTassa();
+}
+
+function renderTassa(){
+  const sel=document.getElementById('ts-month');
+  const ym=sel.value; // "2025-06"
+  const [yr,mo]=ym.split('-').map(Number);
+  const s=loadSettings();
+  const nmax=s.nmax||5;
+  const tar=s.tassa||1.50;
+  const recs=dbLoad();
+
+  // Include records that OVERLAP with the selected month
+  const mStart=new Date(yr,mo-1,1);
+  const mEnd=new Date(yr,mo,0); // last day of month
+
+  const rows=[];
+  recs.forEach(r=>{
+    if(!r.ci_raw||!r.co_raw)return;
+    const ci=new Date(r.ci_raw);
+    const co=new Date(r.co_raw);
+    if(co<=mStart||ci>mEnd)return; // no overlap
+
+    const n=1+(r.altri?.filter(o=>o.nome||o.cogn).length||0);
+    // Total nights of stay
+    const ntot=Math.round((co-ci)/(1000*60*60*24));
+    const nt=Math.min(ntot,nmax);
+    const importo=n*nt*tar;
+    const c=r.cap||{};
+    rows.push({ci:r.checkin,co:r.checkout,camera:r.camera||'—',
+      nome:(c.cogn||'')+' '+(c.nome||''),ospiti:n,notti:nt,importo,ntot});
+  });
+
+  rows.sort((a,b)=>a.ci.localeCompare(b.ci));
+
+  const tbody=document.getElementById('ts-tbody');
+  const tfoot=document.getElementById('ts-tfoot');
+  const empty=document.getElementById('ts-empty');
+  const stats=document.getElementById('ts-stats');
+
+  if(!rows.length){
+    tbody.innerHTML='';tfoot.innerHTML='';
+    empty.style.display='';
+    document.getElementById('ts-table').style.display='none';
+    stats.textContent='Nessuna scheda';
+    return;
+  }
+  empty.style.display='none';
+  document.getElementById('ts-table').style.display='';
+
+  const totNotti=rows.reduce((s,r)=>s+r.notti,0);
+  const totImporto=rows.reduce((s,r)=>s+r.importo,0);
+  const totOspiti=rows.reduce((s,r)=>s+r.ospiti,0);
+
+  stats.textContent=rows.length+' prenotazioni · '+totNotti+' notti tassate · €'+totImporto.toFixed(2)+' totale';
+
+  tbody.innerHTML=rows.map(r=>`<tr>
+    <td>${r.ci}</td><td>${r.co}</td>
+    <td><strong>${r.camera}</strong></td>
+    <td>${r.nome||'—'}</td>
+    <td style="text-align:center;">${r.ospiti}</td>
+    <td style="text-align:center;">${r.notti}${r.ntot>nmax?' <span style="font-size:.65rem;color:#a08040;">(max)</span>':''}</td>
+    <td style="text-align:right;font-weight:600;">€${r.importo.toFixed(2)}</td>
+  </tr>`).join('');
+
+  tfoot.innerHTML=`<tr style="background:#2a2318;">
+    <td colspan="4" style="font-family:'Cormorant Garamond',serif;font-size:.85rem;color:var(--gold);padding:.6rem .7rem;letter-spacing:.05em;">TOTALE MESE</td>
+    <td style="text-align:center;font-weight:700;color:var(--gold);">${totOspiti}</td>
+    <td style="text-align:center;font-weight:700;color:var(--gold);">${totNotti}</td>
+    <td style="text-align:right;font-weight:700;color:var(--gold);font-size:1rem;">€${totImporto.toFixed(2)}</td>
+  </tr>`;
+}
+
+function printTassa(){
+  const sel=document.getElementById('ts-month');
+  const ym=sel.value;
+  const [yr,mo]=ym.split('-').map(Number);
+  const label=new Date(yr,mo-1,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+  const s=loadSettings();
+  const tbl=document.getElementById('ts-table');
+  const stats=document.getElementById('ts-stats').textContent;
+  const win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tassa Soggiorno</title>'+
+    '<style>body{font-family:Georgia,serif;padding:2rem;max-width:900px;margin:auto;}'+
+    'h2{font-size:1.3rem;margin-bottom:.2rem;}p{font-size:.8rem;color:#666;margin-bottom:1.5rem;}'+
+    'table{width:100%;border-collapse:collapse;font-size:.82rem;}'+
+    'th{background:#f0e8d0;padding:.5rem .7rem;text-align:left;border-bottom:2px solid #C9A84C;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;}'+
+    'td{padding:.5rem .7rem;border-bottom:1px solid #e8dcc4;}'+
+    'tfoot td{background:#fdf6e3;font-weight:700;border-top:2px solid #C9A84C;}</style></head><body>'+
+    '<h2>'+(s.nome||'Hotel')+' — Tassa di Soggiorno</h2>'+
+    '<p>'+label.charAt(0).toUpperCase()+label.slice(1)+' · '+stats+'</p>'+
+    tbl.outerHTML+
+    '<script>window.onload=()=>window.print();<\/script></body></html>');
+  win.document.close();
+}
+
 function sortBy(k){
   if(sKey===k)sDir*=-1;else{sKey=k;sDir=-1;}
   document.querySelectorAll('.atable th').forEach(t=>t.classList.remove('sorted'));
