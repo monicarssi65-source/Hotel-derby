@@ -223,6 +223,22 @@ textarea{resize:vertical;min-height:65px;}
   padding:.65rem .85rem;margin-top:.85rem;font-size:.7rem;color:#e74c3c;display:none;
   align-items:center;gap:.8rem;flex-wrap:wrap;}
 .cdel.on{display:flex;}
+/* CLIENT SEARCH MODAL */
+#cl-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:250;align-items:flex-start;justify-content:center;padding:4rem 1.25rem 1.25rem;}
+#cl-modal.on{display:flex;}
+.clm-box{background:var(--dark2);border:1px solid var(--brd);border-radius:8px;width:100%;max-width:580px;max-height:75vh;display:flex;flex-direction:column;overflow:hidden;}
+.clm-head{padding:1rem 1.25rem;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:.75rem;}
+.clm-head input{flex:1;background:var(--dark3);border:1px solid var(--brd);border-radius:3px;color:var(--cream);font-family:'DM Mono',monospace;font-size:.82rem;padding:.5rem .75rem;outline:none;}
+.clm-head input:focus{border-color:var(--gold);}
+.clm-body{overflow-y:auto;padding:.6rem;}
+.clm-item{padding:.75rem 1rem;border-radius:4px;border:1px solid var(--brd);margin-bottom:.4rem;cursor:pointer;transition:all .2s;display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;}
+.clm-item:hover{border-color:var(--gold);background:rgba(201,168,76,.06);}
+.clm-nm{font-size:.92rem;color:var(--cream);margin-bottom:.15rem;}
+.clm-dt{font-size:.6rem;color:var(--muted);}
+.clm-sg{font-size:.62rem;color:var(--gold-l);text-align:right;white-space:nowrap;}
+.clm-empty{text-align:center;padding:2rem;font-size:.75rem;color:var(--muted);}
+.cl-recall-btn{background:rgba(201,168,76,.08);border:1px solid var(--brd2);color:var(--gold-l);font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;padding:.4rem .85rem;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.cl-recall-btn:hover{background:rgba(201,168,76,.18);border-color:var(--gold);}
 /* JPEG */
 #joverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:300;
   align-items:center;justify-content:center;flex-direction:column;gap:1rem;padding:1.25rem;}
@@ -269,9 +285,12 @@ textarea{resize:vertical;min-height:65px;}
 
   <!-- CHECK-IN -->
   <div id="s-checkin">
-    <div class="mode">
-      <button class="mbtn on" id="m-ai" onclick="setMode('ai')">🤖 Scansione AI</button>
-      <button class="mbtn" id="m-man" onclick="setMode('man')">✍️ Inserimento Manuale</button>
+    <div style="display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem;">
+      <div class="mode" style="margin-bottom:0;flex:1;">
+        <button class="mbtn on" id="m-ai" onclick="setMode('ai')">🤖 Scansione AI</button>
+        <button class="mbtn" id="m-man" onclick="setMode('man')">✍️ Inserimento Manuale</button>
+      </div>
+      <button class="cl-recall-btn" onclick="openClModal()">👤 Cliente Esistente</button>
     </div>
 
     <div class="panel">
@@ -522,6 +541,18 @@ textarea{resize:vertical;min-height:65px;}
 
 </div>
 
+<!-- CLIENT SEARCH MODAL -->
+<div id="cl-modal" onclick="if(event.target===this)closeClModal()">
+  <div class="clm-box">
+    <div class="clm-head">
+      <span style="font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);white-space:nowrap;">👤 Clienti</span>
+      <input type="text" id="clm-q" placeholder="Cerca per nome o cognome…" oninput="renderClModal()">
+      <button class="mclose" style="position:static;flex-shrink:0;" onclick="closeClModal()">×</button>
+    </div>
+    <div class="clm-body" id="clm-body"></div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="moverlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="mbox">
@@ -553,7 +584,9 @@ firebase.initializeApp({
 });
 const FSdb = firebase.firestore();
 const FSCol = FSdb.collection('schede');
+const FSCli = FSdb.collection('clienti');
 let _cache=[];
+let _cliCache=[];
 
 function setConn(ok){
   const el=document.getElementById('conn');
@@ -574,6 +607,14 @@ function startSync(){
       setTimeout(startSync,5000);
     }
   );
+  FSCli.onSnapshot(
+    snap=>{
+      _cliCache=snap.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>((a.cogn||'')+(a.nome||'')).localeCompare((b.cogn||'')+(b.nome||'')));
+      if(document.getElementById('s-clienti').style.display!=='none')renderClienti();
+    },
+    err=>console.error('FS clienti error:',err.code,err.message)
+  );
 }
 function dbLoad(){return _cache;}
 function dbAdd(r){
@@ -588,6 +629,24 @@ function dbUpdate(id,r){
   FSCol.doc(id).set(r).catch(e=>console.error(e));
 }
 function dbDelete(id){FSCol.doc(id).delete().catch(e=>console.error(e));}
+
+// ── CLIENTI DB ──────────────────────────────────────────
+function cliKey(nome,cogn,ddn){return((cogn||'')+'_'+(nome||'')+'_'+(ddn||'')).toLowerCase().replace(/\s+/g,'_');}
+function cliSave(cap){
+  if(!cap.nome&&!cap.cogn)return;
+  const key=cliKey(cap.nome,cap.cogn,cap.ddn_raw||cap.ddn||'');
+  const existing=_cliCache.find(c=>c.id===key);
+  const data={
+    nome:cap.nome||'',cogn:cap.cogn||'',
+    ddn:cap.ddn_raw||cap.ddn||'',
+    ldn:cap.ldn||'',tdoc:cap.tdoc||'',
+    ndoc:cap.ndoc||'',ril:cap.ril||'',naz:cap.naz||'',
+    lastSeen:new Date().toISOString(),
+    soggiorni:(existing?((existing.soggiorni||0)+1):1)
+  };
+  FSCli.doc(key).set(data,{merge:true}).catch(e=>console.error(e));
+}
+function cliDelete(id){FSCli.doc(id).delete().catch(e=>console.error(e));}
 function refreshViews(){
   if(document.getElementById('s-archivio').style.display!=='none')renderArchivio();
   if(document.getElementById('s-checkout').style.display!=='none')renderCheckout();
@@ -893,6 +952,8 @@ function generaScheda(){
   };
   if(editId){dbUpdate(editId,rec);editId=null;document.getElementById('bnr-ed').classList.remove('on');}
   else{dbAdd(rec);}
+  // Salva capogruppo nel database Clienti
+  cliSave(cap);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1225,34 +1286,83 @@ function renderArchivio(){
 // ══════════════════════════════════════════════════════
 function renderClienti(){
   const q=(document.getElementById('cl-search')?.value||'').toLowerCase().trim();
-  const recs=dbLoad();
-  const map={};
-  recs.forEach(r=>{
-    const c=r.cap||{};
-    const k=(c.cogn||'')+'_'+(c.nome||'')+'_'+(c.ddn||'');
-    if(!map[k])map[k]={nome:c.nome,cogn:c.cogn,ddn:c.ddn,naz:c.naz,sogg:[]};
-    map[k].sogg.push({cam:r.camera,ci:r.checkin,co:r.checkout});
-    (r.altri||[]).forEach(o=>{
-      if(!o.nome&&!o.cogn)return;
-      const ok=(o.cogn||'')+'_'+(o.nome||'')+'_'+(o.ddn||'');
-      if(!map[ok])map[ok]={nome:o.nome,cogn:o.cogn,ddn:o.ddn,naz:o.naz,sogg:[]};
-      map[ok].sogg.push({cam:r.camera,ci:r.checkin,co:r.checkout});
-    });
-  });
-  let cl=Object.values(map).sort((a,b)=>((a.cogn||'')+(a.nome||'')).localeCompare((b.cogn||'')+(b.nome||'')));
+  let cl=_cliCache.slice();
   if(q)cl=cl.filter(c=>((c.cogn||'')+' '+(c.nome||'')).toLowerCase().includes(q));
   const lista=document.getElementById('cl-lista');
   const emp=document.getElementById('cl-empty');
-  document.getElementById('cl-stats').textContent=Object.keys(map).length+' clienti'+(q?' · '+cl.length+' risultati':'');
+  document.getElementById('cl-stats').textContent=_cliCache.length+' clienti'+(q?' · '+cl.length+' risultati':'');
   if(!cl.length){lista.innerHTML='';emp.style.display='block';return;}
   emp.style.display='none';
   lista.innerHTML=cl.map(c=>'<div class="clcard">'+
-    '<div><div class="cln">'+(c.cogn||'')+' '+(c.nome||'')+'</div>'+
-    '<div class="clm">'+(c.naz||'—')+(c.ddn?' · '+fmt(c.ddn):'')+'</div></div>'+
-    '<div class="cls"><div style="color:var(--gold);margin-bottom:.2rem;">'+c.sogg.length+' soggiorn'+(c.sogg.length===1?'o':'i')+'</div>'+
-    c.sogg.slice(0,3).map(s=>'<div>Cam. '+s.cam+' · '+s.ci+'→'+s.co+'</div>').join('')+
-    (c.sogg.length>3?'<div style="opacity:.6;">+'+( c.sogg.length-3)+' altri</div>':'')+
-    '</div></div>').join('');
+    '<div style="flex:1;min-width:0;">'+
+      '<div class="cln">'+(c.cogn||'')+' '+(c.nome||'')+'</div>'+
+      '<div class="clm">'+(c.naz||'—')+(c.ddn?' · '+fmt(c.ddn):'')+(c.ndoc?' · Doc: '+c.ndoc:'')+'</div>'+
+      '<div class="clm" style="margin-top:.15rem;opacity:.7;">'+(c.ldn||'')+(c.tdoc?' · '+c.tdoc:'')+'</div>'+
+    '</div>'+
+    '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;">'+
+      '<div class="cls"><div style="color:var(--gold);margin-bottom:.2rem;">'+(c.soggiorni||1)+' soggiorn'+((c.soggiorni||1)===1?'o':'i')+'</div>'+
+      (c.lastSeen?'<div style="font-size:.55rem;">Ultimo: '+new Date(c.lastSeen).toLocaleDateString('it-IT')+'</div>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:.3rem;">'+
+        '<button class="tbtn" title="Nuovo check-in con questo cliente" onclick="recallClient(\''+c.id+'\')">✚ Check-In</button>'+
+        '<button class="tbtn d" title="Elimina cliente" onclick="deleteClient(\''+c.id+'\')">🗑️</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>').join('');
+}
+
+function deleteClient(id){
+  if(!confirm('Eliminare il cliente dal database?'))return;
+  cliDelete(id);
+}
+
+function recallClient(id){
+  const c=_cliCache.find(x=>x.id===id);if(!c)return;
+  showV('checkin');setMode('man');
+  document.getElementById('c-nome').value=c.nome||'';
+  document.getElementById('c-cogn').value=c.cogn||'';
+  document.getElementById('c-ddn').value=c.ddn||'';
+  document.getElementById('c-ldn').value=c.ldn||'';
+  document.getElementById('c-ndoc').value=c.ndoc||'';
+  document.getElementById('c-ril').value=c.ril||'';
+  document.getElementById('c-naz').value=c.naz||'';
+  if(c.tdoc){const s=document.getElementById('c-tdoc');[...s.options].forEach(o=>{if(o.value===c.tdoc)o.selected=true;});}
+  renderAltri(parseInt(document.getElementById('f-ng').value)-1,[]);
+  showForm();
+  const bnr=document.getElementById('bnr-ed');
+  document.getElementById('bnr-ed-txt').textContent='Cliente: '+(c.cogn||'')+' '+(c.nome||'')+ ' — verifica e aggiorna i dati';
+  bnr.classList.add('on');
+  document.getElementById('s-form').scrollIntoView({behavior:'smooth'});
+}
+
+// ── CLIENT SEARCH MODAL ──────────────────────────────────
+function openClModal(){
+  document.getElementById('clm-q').value='';
+  renderClModal();
+  document.getElementById('cl-modal').classList.add('on');
+  setTimeout(()=>document.getElementById('clm-q').focus(),80);
+}
+function closeClModal(){document.getElementById('cl-modal').classList.remove('on');}
+function renderClModal(){
+  const q=(document.getElementById('clm-q')?.value||'').toLowerCase().trim();
+  let cl=_cliCache.slice();
+  if(q)cl=cl.filter(c=>((c.cogn||'')+' '+(c.nome||'')).toLowerCase().includes(q));
+  const body=document.getElementById('clm-body');
+  if(!cl.length){
+    body.innerHTML='<div class="clm-empty">'+(q?'Nessun risultato per "'+q+'"':'Nessun cliente salvato ancora.')+'</div>';
+    return;
+  }
+  body.innerHTML=cl.map(c=>'<div class="clm-item" onclick="pickClient(\''+c.id+'\')">'+
+    '<div>'+
+      '<div class="clm-nm">'+(c.cogn||'')+' '+(c.nome||'')+'</div>'+
+      '<div class="clm-dt">'+(c.naz||'—')+(c.ddn?' · Nato: '+fmt(c.ddn):'')+(c.ndoc?' · '+c.ndoc:'')+'</div>'+
+      (c.ldn||c.tdoc?'<div class="clm-dt">'+(c.ldn||'')+(c.tdoc?' · '+c.tdoc:'')+'</div>':'')+'</div>'+
+    '<div class="clm-sg">'+(c.soggiorni||1)+' sogg.<br>'+(c.lastSeen?new Date(c.lastSeen).toLocaleDateString('it-IT'):'')+'</div>'+
+  '</div>').join('');
+}
+function pickClient(id){
+  closeClModal();
+  recallClient(id);
 }
 
 // ══════════════════════════════════════════════════════
